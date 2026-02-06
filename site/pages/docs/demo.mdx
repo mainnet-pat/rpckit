@@ -1,0 +1,68 @@
+# Interactive Demo
+
+Try rpckit's transports live in your browser. Connect to real servers, execute RPC methods, and watch subscription events in real-time.
+
+import { InteractiveDemo } from '../../components/demo/InteractiveDemo'
+
+<InteractiveDemo />
+
+## How to Use
+
+### 1. Choose Protocol
+
+Select the protocol at the top:
+
+- **Electrum Cash**: Connect to Electrum servers using the [Electrum Cash protocol](https://electrum-cash-protocol.readthedocs.io/). Supports subscriptions over WebSocket.
+- **BCHN**: Connect to a Bitcoin Cash Node using standard JSON-RPC. HTTP only, no subscriptions.
+
+### 2. Configure Transport
+
+Choose your transport mode:
+
+- **Single**: Direct connection to one server
+- **Fallback**: Automatic failover across multiple servers (enable health ranking for smart routing)
+- **Cluster**: Require m-of-n quorum consensus for responses
+
+Add transports using the quick-select buttons or enter custom URLs.
+
+### 3. Connect
+
+Click **Connect** to establish the connection. The status badge shows the current state.
+
+### 4. Execute Methods
+
+Select an RPC method from the dropdown, fill in any required parameters, and click **Execute**. Results appear in the right panel with timing information.
+
+Available methods depend on the selected protocol:
+
+**Electrum Cash**: `server.ping`, `blockchain.headers.get_tip`, `blockchain.transaction.get`, `blockchain.address.get_balance`, `blockchain.address.get_history`
+
+**BCHN**: `getblockcount`, `getbestblockhash`, `getblockchaininfo`, `getmempoolinfo`, `getblock`, `getrawtransaction`
+
+### 5. Subscriptions (Electrum + WebSocket only)
+
+- **Block Headers**: Click Subscribe to monitor new blocks. Events appear in the Live Events panel.
+- **Address Activity**: Enter a Bitcoin Cash address in CashAddr format (`bitcoincash:qp...`) to monitor for transaction activity.
+
+## Default Servers
+
+### Electrum Cash
+
+| Protocol | URL |
+|----------|-----|
+| WebSocket (secure) | `wss://fulcrum.pat.mn` |
+| WebSocket (insecure) | `ws://fulcrum.pat.mn:50003` |
+| HTTP | `https://fulcrum.pat.mn` |
+
+### BCHN
+
+| Protocol | URL |
+|----------|-----|
+| HTTP | `https://bchn.pat.mn` |
+
+## Notes
+
+- HTTP transport does not support subscriptions
+- BCHN protocol uses base transports (`@rpckit/http`), while Electrum uses protocol-specific variants (`@rpckit/websocket/electrum-cash`, `@rpckit/http/electrum-cash`)
+- Cluster mode requires multiple transports with matching quorum
+- Health ranking in Fallback mode automatically prioritizes faster, more reliable servers

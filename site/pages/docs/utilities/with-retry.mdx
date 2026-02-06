@@ -1,0 +1,207 @@
+# withRetry()
+
+The `withRetry()` utility executes an async function with exponential backoff retry logic.
+
+## Installation
+
+```bash
+npm i @rpckit/core
+```
+
+## Basic Usage
+
+```ts
+import { withRetry } from '@rpckit/core'
+
+const result = await withRetry(async () => {
+  const response = await fetch('https://api.example.com/data')
+  if (!response.ok) throw new Error('Request failed')
+  return response.json()
+})
+```
+
+## Configuration
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `retryCount` | `number` | `3` | Number of retry attempts after initial failure |
+| `retryDelay` | `number` | `150` | Base delay in milliseconds between retries |
+
+### Custom Retry Count
+
+```ts
+const result = await withRetry(
+  async () => fetchData(),
+  { retryCount: 5 }  // 5 retries = 6 total attempts
+)
+```
+
+### Custom Retry Delay
+
+```ts
+const result = await withRetry(
+  async () => fetchData(),
+  { retryDelay: 1000 }  // Start with 1 second delay
+)
+```
+
+## Exponential Backoff
+
+Delays increase exponentially with each retry:
+
+```
+Attempt 1: immediate
+Attempt 2: retryDelay * 1  (150ms default)
+Attempt 3: retryDelay * 2  (300ms)
+Attempt 4: retryDelay * 4  (600ms)
+Attempt 5: retryDelay * 8  (1200ms)
+...
+```
+
+The formula is: `delay = retryDelay * 2^(attempt - 1)`
+
+### Example Timeline
+
+With default options (`retryCount: 3`, `retryDelay: 150`):
+
+```
+0ms    - Attempt 1 (fails)
+150ms  - Attempt 2 (fails)
+450ms  - Attempt 3 (fails)
+1050ms - Attempt 4 (final attempt)
+```
+
+With `retryDelay: 1000`:
+
+```
+0ms     - Attempt 1 (fails)
+1000ms  - Attempt 2 (fails)
+3000ms  - Attempt 3 (fails)
+7000ms  - Attempt 4 (final attempt)
+```
+
+## Error Handling
+
+If all attempts fail, the last error is thrown:
+
+```ts
+try {
+  await withRetry(async () => {
+    throw new Error('Always fails')
+  }, { retryCount: 2 })
+} catch (error) {
+  // Error from the final (3rd) attempt
+  console.log(error.message)  // 'Always fails'
+}
+```
+
+## Example: Retrying Transport Requests
+
+```ts
+import { withRetry } from '@rpckit/core'
+import { webSocket } from '@rpckit/websocket'
+
+const transport = webSocket('wss://example.com')
+await transport.connect()
+
+// Retry failed requests
+const balance = await withRetry(
+  () => transport.request('getBalance', '0x...'),
+  { retryCount: 3, retryDelay: 200 }
+)
+```
+
+## Example: Retrying Connection
+
+```ts
+import { withRetry } from '@rpckit/core'
+import { webSocket } from '@rpckit/websocket'
+
+async function connectWithRetry() {
+  const transport = webSocket('wss://example.com')
+
+  await withRetry(
+    () => transport.connect(),
+    { retryCount: 5, retryDelay: 1000 }
+  )
+
+  return transport
+}
+```
+
+## Example: Conditional Retry
+
+Wrap your function to only retry specific errors:
+
+```ts
+import { withRetry } from '@rpckit/core'
+
+class RetryableError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'RetryableError'
+  }
+}
+
+const result = await withRetry(async () => {
+  try {
+    return await riskyOperation()
+  } catch (error) {
+    // Only retry network errors
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+      throw new RetryableError(error.message)
+    }
+    // Don't retry other errors - rethrow immediately
+    throw error
+  }
+})
+```
+
+## Example: With Logging
+
+```ts
+import { withRetry } from '@rpckit/core'
+
+let attempt = 0
+
+const result = await withRetry(async () => {
+  attempt++
+  console.log(`Attempt ${attempt}...`)
+
+  const response = await fetch('https://api.example.com/data')
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`)
+  }
+  return response.json()
+}, { retryCount: 3 })
+
+// Output:
+// Attempt 1...
+// Attempt 2...  (if first fails)
+// Attempt 3...  (if second fails)
+// Attempt 4...  (if third fails)
+```
+
+## Comparison with Transport Retry
+
+Transports have built-in retry options. Use `withRetry()` when you need:
+
+- Custom retry logic
+- Retry for operations other than requests
+- Different retry settings per operation
+
+```ts
+// Transport-level retry (applies to all requests)
+const transport = webSocket({
+  url: 'wss://example.com',
+  retry: { retryCount: 3 }
+})
+
+// Operation-level retry (for specific operations)
+const criticalData = await withRetry(
+  () => transport.request('criticalMethod'),
+  { retryCount: 10, retryDelay: 500 }
+)
+```

@@ -1,0 +1,74 @@
+# Changelog
+
+## 1.0.0
+
+Initial release.
+
+### Core
+
+- `Transport` interface with `request()`, `subscribe()`, `connect()`, `close()`
+- Spread-style parameters — `request('method', param1, param2)` instead of array wrapping
+- Schema-based generics for type-safe method names, parameters, and return types
+- `BatchScheduler` for automatic request batching with configurable batch size and wait time
+- `withRetry()` utility with exponential backoff
+- `parse()` for creating transports from URL strings (supports nested meta-transports and query-string options)
+- `createParse()` for building custom parse functions with overridden package maps
+- `createParseSync()` for building synchronous parse functions using pre-imported factory functions
+- `ElectrumCashSchema` type definitions (protocol v1.5 and v1.6)
+- `EthereumSchema` type definitions (EIP-1474 standard methods)
+
+### Transports
+
+- **WebSocket** — Full-duplex communication with subscriptions, keep-alive, reconnection, connection pooling
+- **TCP** — Newline-delimited JSON-RPC with TLS support, keep-alive, reconnection (Node.js)
+- **HTTP** — Stateless JSON-RPC over HTTP POST with custom headers, fetch options, and raw mode
+
+All transports support lazy connections — no resources are allocated until the first `request()`, `subscribe()`, or `connect()` call.
+
+### Meta-Transports
+
+- **Fallback** — Automatic failover across multiple transports with optional health-based ranking
+  - Default `shouldThrow` stops fallback on deterministic JSON-RPC errors (parse error, invalid request, invalid params)
+  - `eagerConnect` prioritizes the fastest-connecting transport
+  - `onScores` listener and `scores` property for monitoring transport health
+  - `onResponse` hook for observing requests across all transports
+- **Cluster** — m-of-n quorum consensus with deep-equality response matching
+  - `onResponse` hook for observing individual transport responses
+- Single-element passthrough — `fallback([t])` and `cluster([t])` return the input transport directly
+
+### Electrum Cash Variants
+
+Protocol-specific subpath imports (`@rpckit/*/electrum-cash`) with pre-configured defaults:
+
+- `server.version` handshake with configurable `clientName` and `protocolVersion`
+- `server.ping` keep-alive
+- `subscribe`/`unsubscribe` method convention
+- `server.version` HTTP header
+- Fallback variant with `server.ping` health probing and protocol-aware `shouldThrow` (retries transient server errors like OOM, warmup, syncing)
+
+### Ethereum Variants
+
+Protocol-specific subpath imports (`@rpckit/*/ethereum`) for Ethereum JSON-RPC:
+
+- `eth_subscription` notification routing by subscription ID
+- `eth_unsubscribe` called automatically on cleanup
+- Subscription ID suppressed from callbacks (handled internally)
+- Custom `parse()` function for Ethereum transports
+
+### Features
+
+- Automatic request batching with configurable batch size and wait time
+- Subscription support with automatic resubscription on reconnect
+- Handshake re-execution on reconnect (WebSocket and TCP)
+- Connection pooling with ref counting for WebSocket and TCP transports
+- Retry with exponential backoff on all transports
+- Raw mode for HTTP transport (return full JSON-RPC envelopes instead of throwing on error)
+- Request/response hooks on HTTP transport
+- Socket access via `getSocket()` and `getSocketAsync()` on WebSocket and TCP transports
+- Subscription sharing — multiple listeners on the same method+params share one server subscription
+- Smart unsubscribe — server unsubscribe only sent when last listener removes
+- Fresh data for new subscribers — new listeners receive most recent notification, not stale initial result
+- Race condition prevention — concurrent subscription calls safely coalesce
+- `notificationFilter` callback for protocol-specific notification routing
+- `transformInitialResult` option to normalize or suppress initial subscription results
+- HTTP transport includes response body in error messages for better debugging

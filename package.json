@@ -1,0 +1,27 @@
+{
+  "name": "@rpckit/monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "yarn workspace @rpckit/core run build && yarn workspace @rpckit/websocket run build && yarn workspace @rpckit/tcp run build && yarn workspace @rpckit/http run build && yarn workspace @rpckit/fallback run build && yarn workspace @rpckit/cluster run build",
+    "clean": "rm -rf packages/*/dist",
+    "test": "vitest run",
+    "lint": "biome check packages",
+    "lint:fix": "biome check --write packages",
+    "format": "biome format --write packages",
+    "publish:all": "yarn build && npm publish --access public -w packages/core && npm publish --access public -w packages/websocket && npm publish --access public -w packages/tcp && npm publish --access public -w packages/http && npm publish --access public -w packages/fallback && npm publish --access public -w packages/cluster",
+    "bump": "node bump.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.13",
+    "@electrum-cash/network": "^4.2.2",
+    "@types/node": "^25.2.0",
+    "mainnet-js": "2.7.34",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "ws": "^8.19.0"
+  },
+  "version": ""
+}

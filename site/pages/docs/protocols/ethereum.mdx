@@ -1,0 +1,258 @@
+# Ethereum
+
+The Ethereum protocol variants provide pre-configured transports for communicating with Ethereum JSON-RPC nodes (Geth, Erigon, Infura, Alchemy, public nodes, etc.).
+
+## Overview
+
+Base transports (`@rpckit/websocket`, `@rpckit/http`) are protocol-agnostic. The Ethereum subpath variants add:
+
+- **Subscription Routing** - `eth_subscription` notifications are routed to the correct callback by subscription ID
+- **Automatic Cleanup** - `eth_unsubscribe` is called automatically when unsubscribing
+- **ID Suppression** - Subscription IDs are handled internally and not passed to callbacks
+
+## Installation
+
+```bash
+npm i @rpckit/core @rpckit/websocket @rpckit/http
+```
+
+## Usage
+
+Import from the `/ethereum` subpath:
+
+```ts
+import { webSocket } from '@rpckit/websocket/ethereum'
+import { http } from '@rpckit/http/ethereum'
+```
+
+### WebSocket
+
+```ts
+import type { EthereumSchema } from '@rpckit/core/ethereum'
+import { webSocket } from '@rpckit/websocket/ethereum'
+
+const transport = webSocket<EthereumSchema>('wss://ethereum-rpc.publicnode.com', {
+  timeout: 30000,
+})
+
+const blockNumber = await transport.request('eth_blockNumber')
+console.log(blockNumber) // '0x...'
+
+const balance = await transport.request(
+  'eth_getBalance',
+  '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+  'latest'
+)
+```
+
+### HTTP
+
+```ts
+import { http } from '@rpckit/http/ethereum'
+
+const transport = http('https://ethereum-rpc.publicnode.com', {
+  timeout: 30000,
+})
+
+const chainId = await transport.request('eth_chainId')
+const gasPrice = await transport.request('eth_gasPrice')
+```
+
+## Subscriptions
+
+Ethereum subscriptions use the `eth_subscribe` method with a subscription type as the first parameter. The Ethereum variant handles the subscription ID routing automatically:
+
+### New Blocks
+
+```ts
+import { webSocket } from '@rpckit/websocket/ethereum'
+
+const transport = webSocket('wss://ethereum-rpc.publicnode.com')
+
+const unsub = await transport.subscribe(
+  'eth_subscribe',
+  'newHeads',
+  (header) => {
+    console.log('New block:', header.number, header.hash)
+  }
+)
+
+// Later: unsubscribe (calls eth_unsubscribe automatically)
+await unsub()
+```
+
+### Pending Transactions
+
+```ts
+const unsub = await transport.subscribe(
+  'eth_subscribe',
+  'newPendingTransactions',
+  (txHash) => {
+    console.log('Pending tx:', txHash)
+  }
+)
+```
+
+### Log Events
+
+Subscribe to contract events with filters:
+
+```ts
+// Subscribe to USDC Transfer events
+const USDC_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+
+const unsub = await transport.subscribe(
+  'eth_subscribe',
+  'logs',
+  {
+    address: USDC_ADDRESS,
+    topics: [TRANSFER_TOPIC]
+  },
+  (log) => {
+    console.log('Transfer:', {
+      from: log.topics[1],
+      to: log.topics[2],
+      block: log.blockNumber
+    })
+  }
+)
+```
+
+### Syncing Status
+
+```ts
+const unsub = await transport.subscribe(
+  'eth_subscribe',
+  'syncing',
+  (status) => {
+    if (status === false) {
+      console.log('Node is synced')
+    } else {
+      console.log('Syncing:', status.currentBlock, '/', status.highestBlock)
+    }
+  }
+)
+```
+
+## Type Safety
+
+Use `EthereumSchema` for full type inference:
+
+```ts
+import type { EthereumSchema } from '@rpckit/core/ethereum'
+import { webSocket } from '@rpckit/websocket/ethereum'
+
+const transport = webSocket<EthereumSchema>('wss://...')
+
+// TypeScript knows the return types
+const chainId = await transport.request('eth_chainId')        // string
+const blockNumber = await transport.request('eth_blockNumber') // string
+const gasPrice = await transport.request('eth_gasPrice')       // string
+
+// TypeScript validates parameters
+const balance = await transport.request(
+  'eth_getBalance',
+  '0x...', // address
+  'latest' // block tag
+)
+
+const block = await transport.request(
+  'eth_getBlockByNumber',
+  'latest',
+  false // include transactions?
+)
+```
+
+## Subscription ID Handling
+
+Unlike the base WebSocket transport, the Ethereum variant handles subscription IDs internally:
+
+```ts
+// Base WebSocket - you receive the subscription ID
+const unsub = await baseTransport.subscribe('eth_subscribe', 'newHeads', (data) => {
+  // First call: data is the subscription ID ('0x...')
+  // Subsequent calls: data is the notification
+})
+
+// Ethereum variant - subscription ID is hidden
+const unsub = await ethereumTransport.subscribe('eth_subscribe', 'newHeads', (header) => {
+  // Every call: header is the block header object
+  // Subscription ID is managed internally
+})
+```
+
+## URL Parsing
+
+Use the Ethereum-specific parse function:
+
+```ts
+import { parse } from '@rpckit/core/ethereum'
+
+// Creates ethereum variant transports
+const ws = await parse('wss://ethereum-rpc.publicnode.com?timeout=30000')
+const http = await parse('https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY')
+
+// Fallback
+const fb = await parse('fallback(wss://node1.example.com,wss://node2.example.com)')
+```
+
+## Common Methods
+
+The Ethereum JSON-RPC API includes:
+
+| Category | Methods |
+|----------|---------|
+| **Chain** | `eth_chainId`, `eth_blockNumber`, `eth_gasPrice`, `eth_feeHistory` |
+| **Accounts** | `eth_getBalance`, `eth_getTransactionCount`, `eth_getCode`, `eth_getStorageAt` |
+| **Blocks** | `eth_getBlockByNumber`, `eth_getBlockByHash`, `eth_getBlockReceipts` |
+| **Transactions** | `eth_getTransactionByHash`, `eth_getTransactionReceipt`, `eth_sendRawTransaction` |
+| **Calls** | `eth_call`, `eth_estimateGas`, `eth_createAccessList` |
+| **Logs** | `eth_getLogs`, `eth_newFilter`, `eth_getFilterChanges` |
+| **Subscriptions** | `eth_subscribe` (`newHeads`, `logs`, `newPendingTransactions`, `syncing`) |
+| **Network** | `net_version`, `net_listening`, `net_peerCount` |
+| **Debug** | `debug_traceTransaction`, `debug_traceCall`, `debug_traceBlockByNumber` |
+
+See the [Ethereum JSON-RPC Specification](https://ethereum.org/en/developers/docs/apis/json-rpc/) for the complete method list.
+
+## Example: Monitor Token Transfers
+
+```ts
+import type { EthereumSchema } from '@rpckit/core/ethereum'
+import { webSocket } from '@rpckit/websocket/ethereum'
+
+const transport = webSocket<EthereumSchema>('wss://ethereum-rpc.publicnode.com')
+
+// ERC-20 Transfer event signature
+const TRANSFER_SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+
+// Token addresses
+const TOKENS = {
+  USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+  USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+  DAI: '0x6B175474E89094C44Da98b954EescdeCB5BE3830',
+}
+
+// Subscribe to transfers for multiple tokens
+const unsub = await transport.subscribe(
+  'eth_subscribe',
+  'logs',
+  {
+    address: Object.values(TOKENS),
+    topics: [TRANSFER_SIG]
+  },
+  (log) => {
+    const token = Object.entries(TOKENS).find(
+      ([, addr]) => addr.toLowerCase() === log.address.toLowerCase()
+    )?.[0] ?? 'Unknown'
+
+    console.log(`${token} transfer in block ${log.blockNumber}`)
+  }
+)
+
+// Cleanup on shutdown
+process.on('SIGINT', async () => {
+  await unsub()
+  await transport.close()
+})
+```

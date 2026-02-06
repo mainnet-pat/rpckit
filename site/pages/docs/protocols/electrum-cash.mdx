@@ -1,0 +1,192 @@
+# Electrum Cash
+
+The Electrum Cash protocol variants provide pre-configured transports for communicating with [Electrum Cash](https://electrum-cash-protocol.readthedocs.io/) servers like Fulcrum.
+
+## Overview
+
+Base transports (`@rpckit/websocket`, `@rpckit/tcp`, `@rpckit/http`) are protocol-agnostic. The Electrum Cash subpath variants add:
+
+- **Handshake** - `server.version` sent automatically on connect
+- **Keep-alive** - Uses `server.ping` as the ping method
+- **Unsubscribe** - Derives unsubscribe method from subscribe method (e.g., `blockchain.headers.subscribe` → `blockchain.headers.unsubscribe`)
+- **HTTP Header** - Includes `server.version` in request headers
+
+## Installation
+
+```bash
+npm i @rpckit/core @rpckit/websocket @rpckit/tcp @rpckit/http
+```
+
+## Usage
+
+Import from the `/electrum-cash` subpath:
+
+```ts
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+import { tcp } from '@rpckit/tcp/electrum-cash'
+import { http } from '@rpckit/http/electrum-cash'
+```
+
+### WebSocket
+
+```ts
+import type { ElectrumCashSchema } from '@rpckit/core/electrum-cash'
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+
+const transport = webSocket<ElectrumCashSchema>('wss://fulcrum.example.com:50004', {
+  keepAlive: 30000,        // Uses server.ping automatically
+  clientName: 'myapp',     // Client name in handshake (default: 'rpckit')
+  protocolVersion: '1.6',  // Protocol version (default: '1.6')
+})
+
+// Handshake (server.version) sent automatically on connect
+const tip = await transport.request('blockchain.headers.get_tip')
+console.log(tip.height) // Typed as number
+```
+
+### TCP
+
+```ts
+import { tcp } from '@rpckit/tcp/electrum-cash'
+
+// Plain TCP
+const transport = tcp('tcp://electrum.example.com:50001')
+
+// TCP with TLS
+const tlsTransport = tcp('tcp+tls://electrum.example.com:50002')
+
+const tip = await transport.request('blockchain.headers.get_tip')
+```
+
+### HTTP
+
+```ts
+import { http } from '@rpckit/http/electrum-cash'
+
+const transport = http('https://electrum.example.com')
+
+// server.version header included automatically
+const tip = await transport.request('blockchain.headers.get_tip')
+```
+
+## Configuration Options
+
+All Electrum Cash variants accept these additional options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `clientName` | `string` | `'rpckit'` | Client name sent in `server.version` handshake |
+| `protocolVersion` | `string` | `'1.6'` | Protocol version for handshake |
+
+## Subscriptions
+
+Electrum Cash supports subscriptions over WebSocket and TCP transports. The variants automatically handle unsubscription:
+
+```ts
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+
+const transport = webSocket('wss://fulcrum.example.com:50004')
+
+// Subscribe to block headers
+const unsubHeaders = await transport.subscribe(
+  'blockchain.headers.subscribe',
+  (header) => {
+    console.log('New block:', header.height)
+  }
+)
+
+// Subscribe to address activity
+const unsubAddress = await transport.subscribe(
+  'blockchain.address.subscribe',
+  'bitcoincash:qp...',
+  (status) => {
+    console.log('Address status:', status)
+  }
+)
+
+// Unsubscribe calls blockchain.headers.unsubscribe automatically
+await unsubHeaders()
+await unsubAddress()
+```
+
+## Type Safety
+
+Use `ElectrumCashSchema` for full type inference on method names, parameters, and return types:
+
+```ts
+import type { ElectrumCashSchema } from '@rpckit/core/electrum-cash'
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+
+const transport = webSocket<ElectrumCashSchema>('wss://...')
+
+// TypeScript knows:
+// - Method name: 'blockchain.headers.get_tip'
+// - No parameters
+// - Returns: { height: number, hex: string }
+const tip = await transport.request('blockchain.headers.get_tip')
+
+// TypeScript knows:
+// - Method name: 'blockchain.address.get_balance'
+// - Parameters: [address: string]
+// - Returns: { confirmed: number, unconfirmed: number }
+const balance = await transport.request(
+  'blockchain.address.get_balance',
+  'bitcoincash:qp...'
+)
+```
+
+## Fallback with Ranking
+
+The `@rpckit/fallback/electrum-cash` variant uses `server.ping` as the default health check:
+
+```ts
+import { fallback } from '@rpckit/fallback/electrum-cash'
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+
+const transport = fallback([
+  webSocket('wss://server1.example.com:50004'),
+  webSocket('wss://server2.example.com:50004'),
+  webSocket('wss://server3.example.com:50004'),
+], { rank: true })
+
+// Requests routed to best-performing server
+const tip = await transport.request('blockchain.headers.get_tip')
+
+// Monitor server health
+transport.onScores((scores) => {
+  console.log('Rankings:', scores.map(s => ({
+    url: s.transport.url,
+    score: s.score.toFixed(2)
+  })))
+})
+```
+
+## URL Parsing
+
+Use the Electrum Cash-specific parse function:
+
+```ts
+import { parse } from '@rpckit/core/electrum-cash'
+
+// Creates electrum-cash variant transports
+const ws = await parse('wss://fulcrum.example.com:50004?keepAlive=30000')
+const tcp = await parse('tcp+tls://electrum.example.com:50002')
+const http = await parse('https://electrum.example.com')
+
+// Fallback with ranking
+const fb = await parse('fallback(wss://s1.example.com,wss://s2.example.com)?rank=true')
+```
+
+## Common Methods
+
+The Electrum Cash protocol includes methods for:
+
+| Category | Methods |
+|----------|---------|
+| **Server** | `server.version`, `server.ping`, `server.banner`, `server.features` |
+| **Blockchain** | `blockchain.headers.get_tip`, `blockchain.block.header`, `blockchain.block.headers` |
+| **Addresses** | `blockchain.address.get_balance`, `blockchain.address.get_history`, `blockchain.address.listunspent` |
+| **Transactions** | `blockchain.transaction.get`, `blockchain.transaction.broadcast` |
+| **Subscriptions** | `blockchain.headers.subscribe`, `blockchain.address.subscribe` |
+
+See the [Electrum Cash Protocol](https://electrum-cash-protocol.readthedocs.io/) specification for the complete method list.

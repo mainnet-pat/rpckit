@@ -1,0 +1,123 @@
+# Why rpckit
+
+rpckit is a modular TypeScript library for JSON-RPC communication. It provides type-safe transports with automatic batching, subscriptions, and built-in failover mechanisms.
+
+## The Problem
+
+When building applications that communicate with JSON-RPC servers (like Fulcrum, blockchain nodes, or custom services), you typically need to handle:
+
+- **Multiple transport protocols** - WebSocket for subscriptions, HTTP for stateless calls, TCP for performance
+- **Connection management** - Reconnection, keep-alive, timeouts
+- **Request batching** - Combining multiple requests to reduce round-trips
+- **Failover** - Switching to backup servers when the primary fails
+- **Type safety** - Ensuring correct method names and parameter types
+
+Most libraries solve one or two of these problems. rpckit solves all of them with a unified, composable API.
+
+## The Solution
+
+### Modular Design
+
+Install only what you need:
+
+```bash
+# Just WebSocket
+npm i @rpckit/websocket
+
+# WebSocket + failover
+npm i @rpckit/websocket @rpckit/fallback
+
+# Everything
+npm i @rpckit/websocket @rpckit/tcp @rpckit/http @rpckit/fallback @rpckit/cluster
+```
+
+### Unified Transport Interface
+
+All transports share the same interface:
+
+```ts
+interface Transport<S extends Schema> {
+  connect(): Promise<void>
+  request(method, ...params): Promise<unknown>
+  subscribe(method, ...args): Promise<Unsubscribe>
+  close(): Promise<void>
+}
+```
+
+Switch between WebSocket, TCP, or HTTP without changing your application code.
+
+### Type-Safe Schemas
+
+Define your RPC schema once, get compile-time checking everywhere:
+
+```ts
+type MySchema = {
+  requests: [
+    { method: 'getBalance'; params: [address: string]; return: number },
+    { method: 'getHistory'; params: [address: string]; return: Transaction[] }
+  ]
+  subscriptions: [
+    { method: 'subscribe'; params: [address: string]; return: string }
+  ]
+}
+
+const transport = webSocket<MySchema>('wss://...')
+await transport.request('getBalance', 'addr123') // Typed!
+await transport.request('unknownMethod') // Type error!
+```
+
+### Automatic Batching
+
+Requests are automatically batched to reduce network overhead:
+
+```ts
+// These three requests are sent as a single batch
+const [a, b, c] = await Promise.all([
+  transport.request('method1'),
+  transport.request('method2'),
+  transport.request('method3')
+])
+```
+
+### Built-in Resilience
+
+Fallback transport tries servers in order until one succeeds:
+
+```ts
+const transport = fallback([
+  webSocket('wss://primary.example.com'),
+  webSocket('wss://backup.example.com'),
+  tcp('tcp://fallback.example.com:50001')
+])
+```
+
+Cluster transport requires m-of-n servers to agree:
+
+```ts
+const transport = cluster([
+  webSocket('wss://node1.example.com'),
+  webSocket('wss://node2.example.com'),
+  webSocket('wss://node3.example.com')
+], { quorum: 2 }) // 2-of-3 must agree
+```
+
+## When to Use rpckit
+
+rpckit is ideal for:
+
+- **Blockchain applications** communicating with Fulcrum or similar servers
+- **Microservices** using JSON-RPC for inter-service communication
+- **Real-time applications** that need subscriptions with automatic reconnection
+- **High-availability systems** requiring failover or consensus across multiple servers
+
+## Comparison
+
+| Feature | rpckit | json-rpc-2.0 | jayson |
+|---------|--------|--------------|--------|
+| TypeScript-first | Yes | Partial | Partial |
+| Multiple transports | WS, TCP, HTTP | HTTP | HTTP, TCP |
+| Subscriptions | Yes | No | No |
+| Auto batching | Yes | Manual | Manual |
+| Failover | Yes | No | No |
+| Quorum consensus | Yes | No | No |
+| Schema typing | Yes | No | No |

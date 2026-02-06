@@ -1,0 +1,97 @@
+# Installation
+
+rpckit is distributed as multiple packages. Install only what you need.
+
+## Quick Start
+
+For most applications using WebSocket:
+
+:::code-group
+
+```bash [npm]
+npm i @rpckit/websocket
+```
+
+```bash [pnpm]
+pnpm add @rpckit/websocket
+```
+
+```bash [yarn]
+yarn add @rpckit/websocket
+```
+
+:::
+
+## Packages
+
+### Core
+
+The core package provides shared types and utilities. It's automatically installed as a dependency of all transport packages.
+
+```bash
+npm i @rpckit/core
+```
+
+Exports:
+- `parse()` - Create transports from URL strings
+- `createParse()` - Factory for custom parse functions with overridden package maps
+- `BatchScheduler` - Request batching utility
+- `withRetry()` - Exponential backoff retry wrapper
+- TypeScript types and interfaces
+
+Electrum Cash types and a pre-configured `parse` are available via `@rpckit/core/electrum-cash`.
+
+### WebSocket Transport
+
+WebSocket transport with subscriptions, reconnection, and keep-alive.
+
+```bash
+npm i @rpckit/websocket
+```
+
+Works in browsers and Node.js.
+
+### TCP Transport
+
+TCP transport with TLS support. Node.js only.
+
+```bash
+npm i @rpckit/tcp
+```
+
+### HTTP Transport
+
+Stateless HTTP transport. Works in browsers and Node.js.
+
+```bash
+npm i @rpckit/http
+```
+
+### Fallback Transport
+
+Meta-transport for failover across multiple transports.
+
+```bash
+npm i @rpckit/fallback
+```
+
+### Cluster Transport
+
+Meta-transport for m-of-n quorum consensus.
+
+```bash
+npm i @rpckit/cluster
+```
+
+## Full Installation
+
+To install all packages:
+
+```bash
+npm i @rpckit/core @rpckit/websocket @rpckit/tcp @rpckit/http @rpckit/fallback @rpckit/cluster
+```
+
+## Requirements
+
+- Node.js 18+ or modern browser
+- TypeScript 5.0+ (for type inference)

@@ -1,0 +1,46 @@
+{
+  "name": "@rpckit/cluster",
+  "version": "1.0.0",
+  "description": "Cluster meta-transport for rpckit with m-of-n quorum consensus",
+  "author": "mainnet_pat",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "json-rpc",
+    "rpc",
+    "cluster",
+    "quorum",
+    "consensus",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mainnet-pat/rpckit.git",
+    "directory": "packages/cluster"
+  },
+  "homepage": "https://rpckit.dev",
+  "bugs": {
+    "url": "https://github.com/mainnet-pat/rpckit/issues"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@rpckit/core": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

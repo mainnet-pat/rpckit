@@ -1,0 +1,218 @@
+# Transports Overview
+
+Transports are the core abstraction in rpckit. They handle the low-level communication with JSON-RPC servers.
+
+## Transport Interface
+
+All transports implement the same interface:
+
+```ts
+interface Transport<S extends Schema = Schema> {
+  connect(): Promise<void>
+  request<M extends Method>(method: M, ...params: Params<M>): Promise<Return<M>>
+  subscribe<M extends Method>(method: M, ...args: [...Params<M>, (data: Return<M>) => void]): Promise<Unsubscribe>
+  close(): Promise<void>
+}
+```
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `connect()` | Establish connection to the server |
+| `request(method, ...params)` | Send a JSON-RPC request and wait for response |
+| `subscribe(method, ...args)` | Subscribe to notifications (WebSocket/TCP only) |
+| `close()` | Close the connection and clean up resources |
+
+## Transport Types
+
+### Base Transports
+
+| Transport | Package | Protocols | Subscriptions | Environment |
+|-----------|---------|-----------|---------------|-------------|
+| [WebSocket](/docs/transports/websocket) | `@rpckit/websocket` | `ws://`, `wss://` | Yes | Browser, Node.js |
+| [TCP](/docs/transports/tcp) | `@rpckit/tcp` | `tcp://`, `tcp+tls://` | Yes | Node.js only |
+| [HTTP](/docs/transports/http) | `@rpckit/http` | `http://`, `https://` | No | Browser, Node.js |
+
+### Meta-Transports
+
+Meta-transports wrap other transports to add functionality:
+
+| Transport | Package | Purpose |
+|-----------|---------|---------|
+| [Fallback](/docs/transports/fallback) | `@rpckit/fallback` | Failover across multiple transports |
+| [Cluster](/docs/transports/cluster) | `@rpckit/cluster` | M-of-N quorum consensus |
+
+## Common Configuration
+
+All transports support these common options:
+
+### Timeout
+
+Maximum time to wait for a response:
+
+```ts
+const transport = webSocket('wss://example.com', {
+  timeout: 10000 // 10 seconds (default: 30000)
+})
+```
+
+### Batching
+
+Combine multiple requests into a single JSON-RPC batch:
+
+```ts
+const transport = webSocket('wss://example.com', {
+  batch: {
+    wait: 10,       // Wait 10ms to collect requests (default: 0)
+    batchSize: 100  // Max requests per batch (default: 100)
+  }
+})
+```
+
+Set `batch: false` to disable batching entirely.
+
+### Retry
+
+Automatic retry with exponential backoff (applied to connection, not individual requests):
+
+```ts
+const transport = webSocket('wss://example.com', {
+  reconnect: {
+    retryCount: 3,    // Max attempts (default: 3)
+    retryDelay: 150   // Base delay in ms (default: 150)
+  }
+})
+```
+
+## Type Safety
+
+Transports can be typed with a schema for compile-time checking:
+
+```ts
+type MySchema = {
+  requests: [
+    { method: 'add'; params: [a: number, b: number]; return: number }
+  ]
+  subscriptions: [
+    { method: 'updates'; params: [topic: string]; return: string }
+  ]
+}
+
+const transport = webSocket<MySchema>('wss://example.com')
+
+// TypeScript enforces correct usage
+await transport.request('add', 1, 2)           // OK, returns number
+await transport.request('unknown')             // Type error!
+await transport.request('add', 'a', 'b')      // Type error!
+```
+
+## Connection Management
+
+### Lazy vs Eager Connection
+
+By default, transports connect lazily on first request:
+
+```ts
+const transport = webSocket('wss://example.com')
+// Not connected yet
+
+await transport.request('method')
+// Now connected
+```
+
+For explicit control, call `connect()`:
+
+```ts
+const transport = webSocket('wss://example.com')
+await transport.connect()  // Connect immediately
+```
+
+### Connection Sharing
+
+Transports with the same configuration share connections:
+
+```ts
+const t1 = webSocket('wss://example.com')
+const t2 = webSocket('wss://example.com')
+
+// t1 and t2 share the same WebSocket connection
+```
+
+### Cleanup
+
+Always close transports when done:
+
+```ts
+const transport = webSocket('wss://example.com')
+try {
+  await transport.request('method')
+} finally {
+  await transport.close()
+}
+```
+
+## Subscriptions
+
+WebSocket and TCP transports support subscriptions:
+
+```ts
+const unsubscribe = await transport.subscribe(
+  'events.subscribe',
+  'channel-1',
+  (data) => {
+    console.log('Received:', data)
+  }
+)
+
+// The initial response is delivered to the callback
+// Subsequent notifications are also delivered to the callback
+
+// Later, unsubscribe
+await unsubscribe()
+```
+
+Subscriptions are automatically restored after reconnection.
+
+Configure server-side cleanup with `onUnsubscribe`:
+
+```ts
+const transport = webSocket('wss://example.com', {
+  onUnsubscribe: ({ request, method, params }) => {
+    return request(method.replace('subscribe', 'unsubscribe'), ...params)
+  }
+})
+```
+
+## Protocol Variants
+
+Base transports are protocol-agnostic. For protocol-specific defaults, use the subpath variants:
+
+```ts
+// Base (generic JSON-RPC)
+import { webSocket } from '@rpckit/websocket'
+
+// Electrum Cash (handshake, keepAlive, unsubscribe pre-configured)
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+```
+
+Available variants: `@rpckit/websocket/electrum-cash`, `@rpckit/tcp/electrum-cash`, `@rpckit/http/electrum-cash`, `@rpckit/fallback/electrum-cash`
+
+## Error Handling
+
+Transports throw errors for:
+- Connection failures
+- Request timeouts
+- JSON-RPC errors from the server
+
+```ts
+try {
+  await transport.request('method')
+} catch (error) {
+  if (error.code === -32600) {
+    // Invalid request
+  } else if (error.code === -32601) {
+    // Method not found
+  }
+}
+```

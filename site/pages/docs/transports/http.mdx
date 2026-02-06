@@ -1,0 +1,189 @@
+# HTTP Transport
+
+The HTTP transport provides stateless JSON-RPC communication over HTTP/HTTPS. It does not support subscriptions.
+
+## Installation
+
+```bash
+npm i @rpckit/http
+```
+
+## Basic Usage
+
+```ts
+import { http } from '@rpckit/http'
+
+const transport = http('https://example.com/rpc')
+
+const result = await transport.request('method', param1, param2)
+```
+
+## Configuration
+
+### URL String
+
+```ts
+const transport = http('https://example.com/rpc')
+```
+
+### Configuration Object
+
+```ts
+const transport = http({
+  url: 'https://example.com/rpc',
+  headers: {
+    'Authorization': 'Bearer token',
+    'X-Custom-Header': 'value'
+  },
+  timeout: 10000,
+  batch: { wait: 10, batchSize: 50 }
+})
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `url` | `string` | - | HTTP(S) URL |
+| `headers` | `Record<string, string>` | - | Custom request headers |
+| `timeout` | `number` | `30000` | Request timeout in milliseconds |
+| `batch` | `BatchConfig \| false` | `{ batchSize: 100 }` | Batching configuration |
+| `fetchFn` | `typeof fetch` | `globalThis.fetch` | Custom fetch implementation |
+| `fetchOptions` | `RequestInit` | - | Additional fetch options |
+| `raw` | `boolean` | `false` | Return RPC errors as results instead of throwing |
+| `onRequest` | `(req) => void` | - | Hook called before each request |
+| `onResponse` | `(res) => void` | - | Hook called after each response |
+
+### Custom Fetch
+
+Use a custom fetch implementation:
+
+```ts
+import { http } from '@rpckit/http'
+import nodeFetch from 'node-fetch'
+
+const transport = http({
+  url: 'https://example.com/rpc',
+  fetchFn: nodeFetch
+})
+```
+
+### Request/Response Hooks
+
+```ts
+const transport = http({
+  url: 'https://example.com/rpc',
+  onRequest: (request) => {
+    console.log('Sending:', request)
+  },
+  onResponse: (response) => {
+    console.log('Received:', response)
+  }
+})
+```
+
+## Electrum Cash Variant
+
+For Electrum Cash servers, use the `electrum-cash` subpath which pre-configures the `server.version` header:
+
+```ts
+import { http } from '@rpckit/http/electrum-cash'
+
+const transport = http('https://electrum.example.com', {
+  clientName: 'myapp',     // Client name in server.version header (default: 'rpckit')
+  protocolVersion: '1.6',  // Default
+})
+
+const tip = await transport.request('blockchain.headers.get_tip')
+```
+
+## Subscriptions
+
+HTTP transport does **not** support subscriptions. Calling `subscribe()` throws an error:
+
+```ts
+const transport = http('https://example.com/rpc')
+
+await transport.subscribe('method', () => {})
+// Error: HTTP transport does not support subscriptions
+```
+
+Use WebSocket or TCP transport if you need subscriptions.
+
+## Batching
+
+Multiple concurrent requests are automatically batched:
+
+```ts
+const transport = http('https://example.com/rpc')
+
+// These are sent as a single HTTP request with a batch JSON-RPC payload
+const [a, b, c] = await Promise.all([
+  transport.request('method1'),
+  transport.request('method2'),
+  transport.request('method3')
+])
+```
+
+Configure batch behavior:
+
+```ts
+const transport = http({
+  url: 'https://example.com/rpc',
+  batch: {
+    wait: 50,       // Wait 50ms to collect more requests
+    batchSize: 20   // Max 20 requests per batch
+  }
+})
+```
+
+Disable batching:
+
+```ts
+const transport = http({
+  url: 'https://example.com/rpc',
+  batch: false  // Each request is sent individually
+})
+```
+
+## Raw Mode
+
+By default, JSON-RPC errors are thrown as exceptions. Use raw mode to receive them as results:
+
+```ts
+const transport = http({
+  url: 'https://example.com/rpc',
+  raw: true
+})
+
+const result = await transport.request('unknownMethod')
+// result: { error: { code: -32601, message: 'Method not found' } }
+// No exception thrown
+```
+
+## Example: API Client
+
+```ts
+import { http } from '@rpckit/http'
+
+type ApiSchema = {
+  requests: [
+    { method: 'users.get'; params: [id: string]; return: User },
+    { method: 'users.list'; params: []; return: User[] },
+    { method: 'users.create'; params: [data: CreateUserData]; return: User }
+  ]
+  subscriptions: []
+}
+
+const api = http<ApiSchema>({
+  url: 'https://api.example.com/rpc',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+})
+
+// Typed API calls
+const user = await api.request('users.get', 'user-123')
+const users = await api.request('users.list')
+const newUser = await api.request('users.create', { name: 'Alice', email: 'alice@example.com' })
+```

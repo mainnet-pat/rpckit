@@ -1,0 +1,154 @@
+---
+title: rpckit - Type-Safe JSON-RPC for TypeScript
+content:
+  width: 100%
+layout: landing
+logo: false
+outline: false
+---
+
+import { HomePage } from 'vocs'
+import { LandingDonation } from '../components/LandingDonation.js'
+
+<LandingDonation />
+
+<div className="max-w-[1120px] mx-auto vp-doc relative px-[24px] mb-[96px] mt-[32px] md:px-0 md:mb-[64px]">
+  <div className="pt-[48px] max-sm:pt-0">
+    <div className="max-sm:px-0 flex justify-between z-0 max-md:justify-center">
+      <div className="space-y-8 max-w-[480px] flex flex-col items-start max-md:items-center">
+        <div className="text-5xl font-bold text-black dark:text-white">rpckit</div>
+        <div className="font-regular text-[21px] max-sm:text-[18px] text-[#919193] max-md:text-center">
+          A modular TypeScript library for <span className="text-black dark:text-white">JSON-RPC</span> communication with <span className="text-black dark:text-white">type-safe</span> transports, automatic <span className="text-black dark:text-white">batching</span>, and built-in <span className="text-black dark:text-white">failover</span>.
+        </div>
+        <div className="flex justify-center space-x-2 flex-nowrap">
+          <HomePage.Button href="/docs/getting-started" variant="accent">Get started</HomePage.Button>
+          <HomePage.Button href="/docs/introduction">Why rpckit?</HomePage.Button>
+        </div>
+      </div>
+      <div className="flex flex-col justify-between w-[440px] space-y-10 max-lg:w-[300px] max-md:hidden">
+        <div id="home-install" className="h-full">
+
+  :::code-group
+
+  ```bash [npm]
+  npm i @rpckit/core @rpckit/websocket
+  ```
+
+  ```bash [pnpm]
+  pnpm add @rpckit/core @rpckit/websocket
+  ```
+
+  ```bash [yarn]
+  yarn add @rpckit/core @rpckit/websocket
+  ```
+
+  :::
+
+    </div>
+    <div className="flex justify-between space-x-2">
+      <div className="flex-1 h-[44px] p-1.5 flex items-center gap-2 rounded-lg border border-black/10 dark:border-white/10 bg-white/80 dark:bg-white/5">
+        <span className="font-medium text-[15px] opacity-60 bg-black/10 dark:bg-black/40 px-3 h-full flex items-center rounded-md">version</span>
+        <span className="font-medium text-[15px] text-black dark:text-white flex-1 text-center">1.0.0</span>
+      </div>
+      <div className="flex-1 h-[44px] p-1.5 flex items-center gap-2 rounded-lg border border-black/10 dark:border-white/10 bg-white/80 dark:bg-white/5">
+        <span className="font-medium text-[15px] opacity-60 bg-black/10 dark:bg-black/40 px-3 h-full flex items-center rounded-md">typed</span>
+        <span className="font-medium text-[15px] text-black dark:text-white flex-1 text-center">100%</span>
+      </div>
+      <div className="flex-1 h-[44px] p-1.5 flex items-center gap-2 rounded-lg border border-black/10 dark:border-white/10 bg-white/80 dark:bg-white/5">
+        <span className="font-medium text-[15px] opacity-60 bg-black/10 dark:bg-black/40 px-3 h-full flex items-center rounded-md">license</span>
+        <span className="font-medium text-[15px] text-black dark:text-white flex-1 text-center">MIT</span>
+      </div>
+    </div>
+    </div>
+    </div>
+    <div className="flex justify-between flex-wrap mt-16 max-sm:hidden">
+      <div className="pr-2 w-1/4 max-lg:pb-3 max-sm:px-0 max-lg:w-1/2 max-sm:w-full z-0">
+        <div className="relative w-full h-[168px] max-lg:h-[142px] overflow-hidden">
+          <div className="border-black/10 dark:border-white/10 border border-solid rounded-lg h-full px-5 py-6 absolute z-10 flex flex-col justify-between w-full">
+            <div className="text-xl font-medium text-black dark:text-white">Modular</div>
+            <div className="text-[17px] text-[#919193]">Pick only the transports you need - WebSocket, TCP, HTTP, or all three</div>
+          </div>
+          <div className="absolute left-0 right-0 top-0 bottom-0 dark:bg-[#313136] opacity-20 z-0" />
+          <div className="absolute left-0 right-0 top-0 bottom-0 backdrop-filter backdrop-blur-[2px] z-0" />
+        </div>
+      </div>
+      <div className="pl-2 pr-2 max-sm:px-0 max-lg:pb-3 max-lg:pr-0 w-1/4 max-lg:w-1/2 max-sm:w-full z-0">
+        <div className="relative w-full h-[168px] max-lg:h-[142px]">
+          <div className="border-black/10 dark:border-white/10 border border-solid rounded-lg h-full px-5 py-6 absolute z-10 flex flex-col justify-between w-full">
+            <div className="text-xl font-medium text-black dark:text-white">Type-Safe</div>
+            <div className="text-[17px] text-[#919193]">Full TypeScript support with schema-based typing for RPC methods</div>
+          </div>
+          <div className="absolute left-0 right-0 top-0 bottom-0 dark:bg-[#313136] opacity-20 z-0" />
+          <div className="absolute left-0 right-0 top-0 bottom-0 backdrop-filter backdrop-blur-[2px] z-0" />
+        </div>
+      </div>
+      <div className="pl-2 pr-2 max-lg:pb-3 max-sm:px-0 max-lg:pl-0 w-1/4 max-lg:w-1/2 max-sm:w-full z-0">
+        <div className="relative w-full h-[168px] max-lg:h-[142px]">
+          <div className="border-black/10 dark:border-white/10 border border-solid rounded-lg h-full px-5 py-6 absolute z-10 flex flex-col justify-between w-full">
+            <div className="text-xl font-medium text-black dark:text-white">Resilient</div>
+            <div className="text-[17px] text-[#919193]">Built-in failover with fallback and m-of-n quorum cluster transports</div>
+          </div>
+          <div className="absolute left-0 right-0 top-0 bottom-0 dark:bg-[#313136] opacity-20 z-0" />
+          <div className="absolute left-0 right-0 top-0 bottom-0 backdrop-filter backdrop-blur-[2px] z-0" />
+        </div>
+      </div>
+      <div className="pl-2 w-1/4 max-sm:px-0 max-lg:w-1/2 max-sm:w-full z-0">
+        <div className="relative w-full h-[168px] max-lg:h-[142px]">
+          <div className="border-black/10 dark:border-white/10 border border-solid rounded-lg h-full px-5 py-6 absolute z-10 flex flex-col justify-between w-full">
+            <div className="text-xl font-medium text-black dark:text-white">Efficient</div>
+            <div className="text-[17px] text-[#919193]">Automatic request batching, connection pooling, and keep-alive</div>
+          </div>
+          <div className="absolute left-0 right-0 top-0 bottom-0 dark:bg-[#313136] opacity-20 z-0" />
+          <div className="absolute left-0 right-0 top-0 bottom-0 backdrop-filter backdrop-blur-[2px] z-0" />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<article className="vocs_Content max-w-[70ch] mx-auto space-y-4" data-v-content>
+
+## Overview
+
+```ts
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+
+// Create a transport with protocol-specific defaults
+const transport = webSocket('wss://electrum.example.com:50004')
+
+// Make requests (handshake sent automatically)
+const tip = await transport.request('blockchain.headers.get_tip')
+
+// Subscribe to updates
+const unsubscribe = await transport.subscribe(
+  'blockchain.headers.subscribe',
+  (header) => console.log('New block:', header)
+)
+
+// Clean up
+await unsubscribe()
+await transport.close()
+```
+
+## Features
+
+- **Multiple Transports** - WebSocket, TCP (with TLS), and HTTP support
+- **Meta-Transports** - Fallback for failover, Cluster for m-of-n quorum consensus
+- **Automatic Batching** - Combines multiple requests into single JSON-RPC batch calls
+- **Subscriptions** - First-class subscription support with automatic resubscription on reconnect
+- **Type Safety** - Define schemas for compile-time checking of method names and parameters
+- **Connection Management** - Keep-alive, reconnection with exponential backoff, connection pooling
+- **URL Parsing** - Create transports from URL strings with `parse('wss://...')`
+
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| `@rpckit/core` | Core types, `BatchScheduler`, `parse()`, `withRetry()` |
+| `@rpckit/websocket` | WebSocket transport with subscriptions and reconnection |
+| `@rpckit/tcp` | TCP transport with TLS support (Node.js) |
+| `@rpckit/http` | HTTP transport for stateless requests |
+| `@rpckit/fallback` | Meta-transport for failover across multiple transports |
+| `@rpckit/cluster` | Meta-transport for m-of-n quorum consensus |
+
+</article>

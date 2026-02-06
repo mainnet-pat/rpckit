@@ -1,0 +1,251 @@
+# parse()
+
+The `parse()` utility creates transports from URL-like one-liner strings. It dynamically loads the required transport packages at runtime.
+
+## Installation
+
+```bash
+npm i @rpckit/core
+```
+
+You must also install the transport packages you want to use:
+
+```bash
+npm i @rpckit/websocket @rpckit/tcp @rpckit/http @rpckit/fallback @rpckit/cluster
+```
+
+## Basic Usage
+
+```ts
+import { parse } from '@rpckit/core'
+
+const transport = await parse('wss://example.com')
+await transport.connect()
+
+const result = await transport.request('method', param1, param2)
+```
+
+## Supported Schemes
+
+| Scheme | Transport | Package |
+|--------|-----------|---------|
+| `ws://`, `wss://` | WebSocket | `@rpckit/websocket` |
+| `tcp://`, `tcp+tls://` | TCP | `@rpckit/tcp` |
+| `http://`, `https://` | HTTP | `@rpckit/http` |
+| `fallback(...)` | Fallback | `@rpckit/fallback` |
+| `cluster(quorum,...)` | Cluster | `@rpckit/cluster` |
+
+## Simple Transports
+
+### WebSocket
+
+```ts
+const ws = await parse('wss://example.com')
+const wss = await parse('wss://example.com:8443/path')
+```
+
+### TCP
+
+```ts
+const tcp = await parse('tcp://example.com:50001')
+const tcpTls = await parse('tcp+tls://example.com:50002')
+```
+
+### HTTP
+
+```ts
+const http = await parse('https://example.com/rpc')
+```
+
+## Meta-Transports
+
+### Fallback
+
+Creates a fallback transport that tries transports in order:
+
+```ts
+const fb = await parse('fallback(wss://primary.com,wss://backup.com)')
+```
+
+With health ranking enabled:
+
+```ts
+const ranked = await parse('fallback(wss://a.com,wss://b.com)?rank=true')
+```
+
+### Cluster
+
+Creates a cluster transport requiring quorum consensus. The first argument is the quorum number:
+
+```ts
+// Require 2-of-3 agreement
+const cluster = await parse('cluster(2,wss://node1.com,wss://node2.com,wss://node3.com)')
+```
+
+## Options
+
+Options are specified as query parameters:
+
+```ts
+const transport = await parse('wss://example.com?timeout=10000&keepAlive=30000')
+```
+
+### Supported Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `timeout` | `number` | Request timeout in milliseconds |
+| `keepAlive` | `number` | Keep-alive ping interval in milliseconds |
+| `batch` | `boolean` | Enable/disable batching |
+| `batchSize` | `number` | Maximum requests per batch |
+| `batchWait` | `number` | Maximum wait time before flushing batch (ms) |
+| `rank` | `boolean` | Enable health ranking for fallback transport |
+| `eagerConnect` | `boolean` | Connect all fallback transports in parallel |
+| `retryCount` | `number` | Number of retry attempts |
+| `retryDelay` | `number` | Base delay between retries (ms) |
+| `clientName` | `string` | Client name for electrum-cash handshake (default: `'rpckit'`) |
+| `protocolVersion` | `string` | Protocol version for electrum-cash handshake (default: `'1.6'`) |
+
+### Batching Options
+
+```ts
+// Enable batching with custom settings
+const transport = await parse('wss://example.com?batchSize=10&batchWait=50')
+```
+
+### Fallback Options
+
+```ts
+// Ranked fallback with eager connection
+const transport = await parse('fallback(wss://a.com,wss://b.com)?rank=true&eagerConnect=true')
+```
+
+### Cluster Options
+
+```ts
+// Cluster with custom timeout
+const transport = await parse('cluster(2,wss://a.com,wss://b.com,wss://c.com)?timeout=5000')
+```
+
+## Nested Transports
+
+Meta-transports can be nested:
+
+```ts
+// Fallback with a cluster as backup
+const nested = await parse('fallback(wss://primary.com,cluster(2,wss://a.com,wss://b.com,wss://c.com))')
+```
+
+## Protocol-Specific Parse
+
+### createParse
+
+Use `createParse` to create a `parse` function that uses different packages for transport creation:
+
+```ts
+import { createParse } from '@rpckit/core'
+
+const electrumParse = createParse({
+  websocket: '@rpckit/websocket/electrum-cash',
+  tcp: '@rpckit/tcp/electrum-cash',
+  http: '@rpckit/http/electrum-cash',
+})
+
+// Transports created by electrumParse have Electrum Cash defaults
+const transport = await electrumParse('wss://electrum.example.com')
+```
+
+### createParseSync
+
+Use `createParseSync` to create a synchronous `parse` function using pre-imported factory functions. Unlike `createParse` which uses dynamic imports, this accepts already-loaded factories:
+
+```ts
+import { createParseSync } from '@rpckit/core'
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+import { fallback } from '@rpckit/fallback'
+
+const parse = createParseSync({ webSocket, fallback })
+const transport = parse('fallback(wss://a.com,wss://b.com)?eagerConnect=true')
+```
+
+Factory keys are normalized automatically (`webSocket` maps to `websocket`).
+
+### Pre-Built Electrum Cash Parse
+
+A pre-configured parse for Electrum Cash is available:
+
+```ts
+import { parse } from '@rpckit/core/electrum-cash'
+
+const transport = await parse('wss://electrum.example.com')
+// Handshake, keepAlive method, and unsubscribe conventions are pre-configured
+
+// Custom client name and protocol version
+const custom = await parse('wss://electrum.example.com?clientName=myapp&protocolVersion=1.5')
+```
+
+### Pre-Built Ethereum Parse
+
+A pre-configured parse for Ethereum is available:
+
+```ts
+import { parse } from '@rpckit/core/ethereum'
+
+const transport = await parse('wss://ethereum-rpc.publicnode.com')
+// Uses Ethereum transport variants with eth_subscription routing
+```
+
+## Type Safety
+
+Use generics to type the transport:
+
+```ts
+import { parse } from '@rpckit/core/electrum-cash'
+import type { ElectrumCashSchema } from '@rpckit/core/electrum-cash'
+
+const transport = await parse<ElectrumCashSchema>('wss://electrum.example.com')
+
+// Typed request
+const balance = await transport.request('blockchain.address.get_balance', address)
+```
+
+## Error Handling
+
+If a required package is not installed, `parse()` throws an error:
+
+```ts
+try {
+  const transport = await parse('wss://example.com')
+} catch (error) {
+  // Error: Package @rpckit/websocket is not installed. Run: npm install @rpckit/websocket
+}
+```
+
+Invalid URLs also throw errors:
+
+```ts
+await parse('invalid://example.com')
+// Error: Unknown scheme: invalid
+```
+
+## Example: Configuration-Driven Setup
+
+```ts
+import { parse } from '@rpckit/core'
+
+// Configuration from environment or config file
+const config = {
+  transport: process.env.RPC_TRANSPORT || 'wss://localhost:8080'
+}
+
+async function createClient() {
+  const transport = await parse(config.transport)
+  await transport.connect()
+  return transport
+}
+
+// Switch between transports without code changes
+// RPC_TRANSPORT='fallback(wss://primary.com,wss://backup.com)?rank=true'
+// RPC_TRANSPORT='cluster(2,wss://a.com,wss://b.com,wss://c.com)'
+// RPC_TRANSPORT='tcp+tls://electrum.example.com:50002'
+```

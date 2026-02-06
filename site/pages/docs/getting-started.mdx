@@ -1,0 +1,203 @@
+# Getting Started
+
+This guide will help you make your first JSON-RPC requests with rpckit.
+
+## Installation
+
+```bash
+npm i @rpckit/websocket
+```
+
+## Basic Usage
+
+### Create a Transport
+
+```ts
+import { webSocket } from '@rpckit/websocket'
+
+const transport = webSocket('wss://my-jsonrpc-server.com')
+```
+
+### Connect and Make Requests
+
+```ts
+// Connect to the server
+await transport.connect()
+
+// Make a request
+const result = await transport.request('my.method', 'param1')
+console.log(result)
+
+// Close when done
+await transport.close()
+```
+
+### Subscribe to Updates
+
+```ts
+// Subscribe returns an unsubscribe function
+const unsubscribe = await transport.subscribe(
+  'events.subscribe',
+  'channel-1',
+  (data) => {
+    console.log('Event received:', data)
+  }
+)
+
+// Later, unsubscribe
+await unsubscribe()
+```
+
+## Electrum Cash
+
+For Electrum Cash servers, use the protocol-specific variant which pre-configures handshake, keep-alive, and unsubscribe conventions:
+
+```ts
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+
+const transport = webSocket('wss://electrum.example.com:50004')
+
+// Handshake (server.version) is sent automatically on connect
+const tip = await transport.request('blockchain.headers.get_tip')
+console.log(tip) // { height: 875000, hex: '...' }
+
+// Unsubscribe method is derived automatically
+const unsub = await transport.subscribe(
+  'blockchain.headers.subscribe',
+  (header) => console.log('New block:', header)
+)
+await unsub() // Sends blockchain.headers.unsubscribe
+
+await transport.close()
+```
+
+Schema types are available for compile-time checking:
+
+```ts
+import type { ElectrumCashSchema } from '@rpckit/core/electrum-cash'
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+
+const transport = webSocket<ElectrumCashSchema>('wss://electrum.example.com:50004')
+const tip = await transport.request('blockchain.headers.get_tip')
+// tip: { height: number; hex: string }
+```
+
+## Type-Safe Requests
+
+Define a schema for compile-time type checking of any JSON-RPC service:
+
+```ts
+import { webSocket } from '@rpckit/websocket'
+import type { Schema } from '@rpckit/core'
+
+type MySchema = {
+  requests: [
+    { method: 'getblockcount'; params: []; return: number },
+    { method: 'getblock'; params: [blockhash: string, verbosity?: number]; return: object }
+  ]
+  subscriptions: []
+}
+
+const transport = webSocket<MySchema>('wss://example.com')
+
+// TypeScript knows the return type
+const count = await transport.request('getblockcount')
+// count: number
+```
+
+## Configuration Options
+
+### Timeout
+
+```ts
+const transport = webSocket('wss://example.com', {
+  timeout: 10000 // 10 seconds
+})
+```
+
+### Batching
+
+Transports will batch up requests over a given period and execute them in a single Batch JSON-RPC HTTP request. By default, this period is a zero delay meaning that the batch request will be executed at the end of the current JavaScript message queue. Consumers can specify a custom time period `wait` (in ms).
+
+Configure batch behavior with `{ batch: false }` or with extended config:
+
+```ts
+const transport = webSocket('wss://example.com', {
+  batch: {
+    wait: 10,      // Wait 10ms to collect requests
+    batchSize: 50  // Max 50 requests per batch
+  }
+})
+```
+
+### Keep-Alive
+
+```ts
+const transport = webSocket('wss://example.com', {
+  keepAlive: {
+    interval: 30000, // Ping every 30 seconds
+    method: 'server.ping'
+  }
+})
+```
+
+### Reconnection
+
+```ts
+const transport = webSocket('wss://example.com', {
+  reconnect: {
+    retryCount: 5,      // Max 5 attempts
+    retryDelay: 1000    // Start with 1 second delay (exponential backoff)
+  }
+})
+```
+
+## Using Fallback
+
+For high availability, use multiple servers with fallback:
+
+```ts
+import { webSocket } from '@rpckit/websocket'
+import { fallback } from '@rpckit/fallback'
+
+const transport = fallback([
+  webSocket('wss://primary.example.com'),
+  webSocket('wss://backup1.example.com'),
+  webSocket('wss://backup2.example.com')
+])
+
+// Requests automatically fail over to the next server
+const result = await transport.request('my.method')
+```
+
+## Using URL Parsing
+
+Create transports from URL strings:
+
+```ts
+import { parse } from '@rpckit/core'
+
+// Simple transport (base, protocol-agnostic)
+const ws = await parse('wss://example.com?timeout=5000')
+
+// Fallback transport
+const fb = await parse('fallback(wss://a.com,wss://b.com)?rank=true')
+
+// Cluster transport (2-of-3 quorum)
+const cl = await parse('cluster(2,wss://a.com,wss://b.com,wss://c.com)')
+```
+
+For Electrum Cash, use the pre-configured parse variant:
+
+```ts
+import { parse } from '@rpckit/core/electrum-cash'
+
+const transport = await parse('wss://electrum.example.com:50004')
+// Handshake, keepAlive method, and unsubscribe conventions are pre-configured
+```
+
+## Next Steps
+
+- Learn about [Transports](/docs/transports/overview) in detail
+- Explore [Utilities](/docs/utilities/parse) like `parse()` and `BatchScheduler`
+- See the [Fallback](/docs/transports/fallback) and [Cluster](/docs/transports/cluster) meta-transports

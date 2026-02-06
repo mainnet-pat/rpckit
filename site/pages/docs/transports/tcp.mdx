@@ -1,0 +1,179 @@
+# TCP Transport
+
+The TCP transport provides newline-delimited JSON-RPC communication with optional TLS encryption. Node.js only.
+
+## Installation
+
+```bash
+npm i @rpckit/tcp
+```
+
+## Basic Usage
+
+```ts
+import { tcp } from '@rpckit/tcp'
+
+const transport = tcp('tcp://example.com:50001')
+
+await transport.connect()
+const result = await transport.request('server.version', 'client', '1.4')
+await transport.close()
+```
+
+## Configuration
+
+### URL String
+
+```ts
+// Plain TCP
+const transport = tcp('tcp://example.com:50001')
+
+// TCP with TLS
+const transport = tcp('tcp+tls://example.com:50002')
+```
+
+### Configuration Object
+
+```ts
+const transport = tcp({
+  host: 'example.com',
+  port: 50002,
+  tls: true,
+  timeout: 10000,
+  batch: { wait: 10, batchSize: 50 },
+  keepAlive: { interval: 30000, method: 'server.ping' },
+  reconnect: { delay: 1000, attempts: 5 }
+})
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `url` | `string` | - | TCP URL (`tcp://` or `tcp+tls://`) |
+| `host` | `string` | - | Server hostname (alternative to url) |
+| `port` | `number` | - | Server port (alternative to url) |
+| `tls` | `boolean \| TLSOptions` | `false` | Enable TLS encryption |
+| `timeout` | `number` | `30000` | Request timeout in milliseconds |
+| `connectTimeout` | `number` | - | Connection timeout in milliseconds |
+| `batch` | `BatchConfig \| false` | `{ batchSize: 100 }` | Batching configuration |
+| `keepAlive` | `KeepAliveConfig` | - | Keep-alive ping configuration |
+| `reconnect` | `{ delay, attempts }` | - | Auto-reconnect after disconnect |
+
+### TLS Configuration
+
+Simple TLS:
+
+```ts
+const transport = tcp({
+  host: 'example.com',
+  port: 50002,
+  tls: true
+})
+```
+
+Custom TLS options:
+
+```ts
+const transport = tcp({
+  host: 'example.com',
+  port: 50002,
+  tls: {
+    ca: fs.readFileSync('ca.pem'),
+    cert: fs.readFileSync('client.pem'),
+    key: fs.readFileSync('client-key.pem'),
+    rejectUnauthorized: true
+  }
+})
+```
+
+## Electrum Cash Variant
+
+For Electrum Cash servers, use the `electrum-cash` subpath:
+
+```ts
+import { tcp } from '@rpckit/tcp/electrum-cash'
+
+const transport = tcp('tcp+tls://electrum.example.com:50002', {
+  keepAlive: 60000,        // Uses server.ping automatically
+  clientName: 'myapp',     // Client name in handshake (default: 'rpckit')
+  protocolVersion: '1.6',  // Default
+})
+
+// server.version handshake is sent automatically
+// onUnsubscribe derives method from subscribe method
+```
+
+## Subscriptions
+
+TCP transport supports subscriptions like WebSocket:
+
+```ts
+const unsubscribe = await transport.subscribe(
+  'events.subscribe',
+  'channel-1',
+  (data) => {
+    console.log('Event:', data)
+  }
+)
+
+// Later, unsubscribe
+await unsubscribe()
+```
+
+### Subscription Sharing
+
+Multiple callers subscribing to the same method+params share a single server subscription. New subscribers receive the most recent notification data (not stale initial data). The server unsubscribe is only sent when the last listener unsubscribes.
+
+```ts
+// Both callbacks share one server subscription
+const unsub1 = await transport.subscribe('events', callback1)
+const unsub2 = await transport.subscribe('events', callback2)
+
+await unsub1() // callback1 removed, server subscription stays active
+await unsub2() // callback2 removed, NOW server unsubscribe is sent
+```
+
+## Protocol
+
+The TCP transport uses newline-delimited JSON:
+
+- Each JSON-RPC message is a single line terminated by `\n`
+- Messages are UTF-8 encoded
+- Batch requests are sent as a single JSON array on one line
+
+## Extended Interface
+
+```ts
+interface TcpTransport<S extends Schema> extends Transport<S> {
+  getSocket(): Socket | TLSSocket | null
+  getSocketAsync(): Promise<Socket | TLSSocket>
+}
+```
+
+## Example: Fulcrum Connection
+
+```ts
+import { tcp } from '@rpckit/tcp/electrum-cash'
+
+const transport = tcp({
+  host: 'electrum.example.com',
+  port: 50002,
+  tls: true,
+  keepAlive: 60000
+})
+
+await transport.connect()
+
+// Get chain tip (handshake already sent)
+const tip = await transport.request('blockchain.headers.get_tip')
+console.log('Block height:', tip.height)
+
+// Subscribe to block headers
+await transport.subscribe(
+  'blockchain.headers.subscribe',
+  (header) => {
+    console.log('New block:', header.height)
+  }
+)
+```

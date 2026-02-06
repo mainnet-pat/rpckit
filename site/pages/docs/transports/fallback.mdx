@@ -1,0 +1,206 @@
+# Fallback Transport
+
+The Fallback transport wraps multiple transports and provides automatic failover. When a request fails, it tries the next transport in the list.
+
+## Installation
+
+```bash
+npm i @rpckit/fallback
+```
+
+You'll also need at least one base transport:
+
+```bash
+npm i @rpckit/websocket @rpckit/tcp
+```
+
+## Basic Usage
+
+```ts
+import { webSocket } from '@rpckit/websocket'
+import { tcp } from '@rpckit/tcp'
+import { fallback } from '@rpckit/fallback'
+
+const transport = fallback([
+  webSocket('wss://primary.example.com'),
+  webSocket('wss://backup1.example.com'),
+  tcp('tcp+tls://backup2.example.com:50002')
+])
+
+// Automatically tries next transport on failure
+const result = await transport.request('my.method')
+```
+
+## Configuration
+
+### Options
+
+```ts
+const transport = fallback(transports, {
+  shouldThrow: (error) => false, // Never throw, always try next
+  rank: true,        // Enable health-based ranking
+  eagerConnect: true // Connect to all transports immediately
+})
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `shouldThrow` | `(error: Error) => boolean \| undefined` | Throws on parse/invalid request/invalid params | Return `true` to throw, `false` to try next, `undefined` for default |
+| `rank` | `boolean \| RankConfig` | `false` | Enable health-based transport ranking |
+| `eagerConnect` | `boolean` | `false` | Connect to all transports in parallel (fastest is prioritized) |
+
+### Health Ranking
+
+When enabled, the fallback transport monitors transport health and reorders them by performance.
+
+**Note:** Without a `ping` function, ranking has no way to probe transport health and will not collect samples — effectively making it a no-op. Provide a `ping` function appropriate for your protocol.
+
+```ts
+const transport = fallback(transports, {
+  rank: {
+    interval: 5000,    // Sample every 5 seconds
+    ping: (t) => t.request('health.check'),  // provide a ping function for your protocol
+    sampleCount: 10,
+    timeout: 1000,
+    weights: {
+      latency: 0.3,
+      stability: 0.7
+    }
+  }
+})
+```
+
+| Rank Option | Type | Default | Description |
+|-------------|------|---------|-------------|
+| `interval` | `number` | `4000` | Sampling interval in ms |
+| `ping` | `(transport) => Promise<unknown>` | - | Function to probe transport health (ranking is a no-op without this) |
+| `sampleCount` | `number` | `10` | Number of samples to average |
+| `timeout` | `number` | `1000` | Ping timeout in ms |
+| `weights.latency` | `number` | `0.3` | Weight for latency score (0-1) |
+| `weights.stability` | `number` | `0.7` | Weight for stability score (0-1) |
+
+## Electrum Cash Variant
+
+The `@rpckit/fallback/electrum-cash` subpath provides a variant with `server.ping` as the default ping function and a protocol-aware `shouldThrow` that retries on transient server errors (internal error, OOM, warmup, syncing) while stopping on deterministic errors:
+
+```ts
+import { fallback } from '@rpckit/fallback/electrum-cash'
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+
+const transport = fallback([
+  webSocket('wss://server1.example.com:50004'),
+  webSocket('wss://server2.example.com:50004'),
+], { rank: true })  // Uses server.ping for health checks automatically
+```
+
+With the electrum-cash variant, `rank: true` works out of the box. With the base variant, you must provide a `ping` function.
+
+The `shouldThrow` function is also exported for custom use:
+
+```ts
+import { shouldThrow } from '@rpckit/fallback/electrum-cash'
+```
+
+## Observability
+
+### onScores
+
+Subscribe to health score updates:
+
+```ts
+const transport = fallback(transports, {
+  rank: { ping: (t) => t.request('health.check') }
+})
+
+transport.onScores((scores) => {
+  for (const { transport, score, latency, stability } of scores) {
+    console.log(`Transport score: ${score}, latency: ${latency}ms, stability: ${stability}`)
+  }
+})
+```
+
+### onResponse
+
+Subscribe to individual transport responses:
+
+```ts
+transport.onResponse((info) => {
+  console.log(`${info.method} -> ${info.status}`)
+  if (info.status === 'error') {
+    console.log('Error:', info.error)
+  }
+})
+```
+
+## Extended Interface
+
+```ts
+interface FallbackTransport<S extends Schema> extends Transport<S> {
+  transports: Transport<S>[]
+  scores: TransportScore[]
+  onScores(callback: (scores: TransportScore[]) => void): Unsubscribe
+  onResponse(callback: (info: TransportResponse) => void): Unsubscribe
+}
+```
+
+## Single Transport Optimization
+
+When given a single transport, `fallback()` returns it unwrapped:
+
+```ts
+const single = fallback([webSocket('wss://example.com')])
+// single is the WebSocketTransport, not wrapped in FallbackTransport
+```
+
+## Example: High Availability Setup
+
+```ts
+import { fallback } from '@rpckit/fallback'
+import { webSocket } from '@rpckit/websocket'
+import { tcp } from '@rpckit/tcp'
+
+// Create transports with different priorities
+const transport = fallback([
+  // Primary: fast WebSocket connection
+  webSocket('wss://primary.example.com'),
+  // Secondary: another WebSocket
+  webSocket('wss://secondary.example.com'),
+  // Tertiary: TCP fallback
+  tcp('tcp+tls://fallback.example.com:50002')
+], {
+  rank: {
+    interval: 10000,  // Check health every 10 seconds
+    ping: (t) => t.request('health.check'),
+    weights: {
+      latency: 0.4,
+      stability: 0.6
+    }
+  }
+})
+
+// Monitor health
+transport.onScores((scores) => {
+  const best = scores[0]
+  console.log(`Best transport: latency=${best.latency}ms, stability=${best.stability}`)
+})
+
+// Use normally - failover is automatic
+await transport.connect()
+const result = await transport.request('my.method')
+```
+
+## Subscriptions
+
+Fallback transport supports subscriptions. The subscription is established on the first working transport:
+
+```ts
+const unsubscribe = await transport.subscribe(
+  'events.subscribe',
+  'channel-1',
+  (data) => {
+    console.log('Event:', data)
+  }
+)
+```
+
+If the subscribed transport fails, the subscription is re-established on the next available transport.

@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@rpckit/core/electrum-cash": ["packages/core/src/electrum-cash/index.ts"],
+      "@rpckit/websocket/electrum-cash": ["packages/websocket/src/electrum-cash/index.ts"],
+      "@rpckit/tcp/electrum-cash": ["packages/tcp/src/electrum-cash/index.ts"],
+      "@rpckit/http/electrum-cash": ["packages/http/src/electrum-cash/index.ts"],
+      "@rpckit/fallback/electrum-cash": ["packages/fallback/src/electrum-cash/index.ts"],
+      "@rpckit/core": ["packages/core/src/index.ts"],
+      "@rpckit/websocket": ["packages/websocket/src/index.ts"],
+      "@rpckit/tcp": ["packages/tcp/src/index.ts"],
+      "@rpckit/http": ["packages/http/src/index.ts"],
+      "@rpckit/fallback": ["packages/fallback/src/index.ts"],
+      "@rpckit/cluster": ["packages/cluster/src/index.ts"]
+    }
+  },
+  "include": ["tests"]
+}

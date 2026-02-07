@@ -114,7 +114,7 @@ The Electrum Cash variants automatically:
 - Send `server.version` handshake on connect
 - Use `server.ping` as the keep-alive method
 - Derive unsubscribe method from subscribe method (e.g. `blockchain.headers.subscribe` -> `blockchain.headers.unsubscribe`)
-- Include `server.version` header for HTTP requests
+- Include `Server-Version` header for HTTP requests
 
 The Ethereum variants automatically:
 - Route `eth_subscription` notifications to the correct subscription callback by subscription ID

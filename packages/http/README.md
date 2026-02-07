@@ -23,7 +23,7 @@ await transport.close()
 
 ## Electrum Cash Variant
 
-For Electrum Cash servers, use the `electrum-cash` subpath which pre-configures the `server.version` header:
+For Electrum Cash servers, use the `electrum-cash` subpath which pre-configures the `Server-Version` header:
 
 ```typescript
 import { http } from '@rpckit/http/electrum-cash'
@@ -34,7 +34,7 @@ const tip = await transport.request('blockchain.headers.get_tip')
 
 The electrum-cash variant also accepts:
 
-- `clientName` - Client name sent in server.version header (default: `'rpckit'`)
+- `clientName` - Client name sent in Server-Version header (default: `'rpckit'`)
 - `protocolVersion` - Protocol version (default: `'1.6'`)
 
 ## Ethereum Variant

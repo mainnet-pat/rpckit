@@ -7,7 +7,7 @@ import type {
 import { http as baseHttp } from '../http.js'
 
 export interface ElectrumHttpConfig extends HttpTransportConfig {
-  /** Client name sent in server.version header (default: 'rpckit') */
+  /** Client name sent in Server-Version header (default: 'rpckit') */
   clientName?: string
   /** Electrum protocol version (default: '1.6') */
   protocolVersion?: string
@@ -34,7 +34,7 @@ export function http<S extends Schema = AnySchema>(
   return baseHttp<S>({
     ...rest,
     headers: {
-      'server.version': `["${clientName}", "${protocolVersion}"]`,
+      'Server-Version': `["${clientName}", "${protocolVersion}"]`,
       ...rest.headers,
     },
   })

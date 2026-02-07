@@ -84,13 +84,13 @@ const transport = http({
 
 ## Electrum Cash Variant
 
-For Electrum Cash servers, use the `electrum-cash` subpath which pre-configures the `server.version` header:
+For Electrum Cash servers, use the `electrum-cash` subpath which pre-configures the `Server-Version` header:
 
 ```ts
 import { http } from '@rpckit/http/electrum-cash'
 
 const transport = http('https://electrum.example.com', {
-  clientName: 'myapp',     // Client name in server.version header (default: 'rpckit')
+  clientName: 'myapp',     // Client name in Server-Version header (default: 'rpckit')
   protocolVersion: '1.6',  // Default
 })
 

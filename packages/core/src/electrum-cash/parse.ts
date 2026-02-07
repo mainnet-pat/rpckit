@@ -8,7 +8,7 @@ import { createParse } from '../parse.js'
  * - Handshake: `server.version` with `['rpckit', '1.6']`
  * - KeepAlive: `server.ping` method when interval is specified
  * - Unsubscribe: `method.replace('subscribe', 'unsubscribe')`
- * - HTTP headers: `server.version` header
+ * - HTTP headers: `Server-Version` header
  *
  * Use `clientName` to override the client name in the handshake (default: `'rpckit'`).
  * Use `protocolVersion` to override the protocol version (default: `'1.6'`).

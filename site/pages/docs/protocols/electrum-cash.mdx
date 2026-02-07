@@ -9,7 +9,7 @@ Base transports (`@rpckit/websocket`, `@rpckit/tcp`, `@rpckit/http`) are protoco
 - **Handshake** - `server.version` sent automatically on connect
 - **Keep-alive** - Uses `server.ping` as the ping method
 - **Unsubscribe** - Derives unsubscribe method from subscribe method (e.g., `blockchain.headers.subscribe` → `blockchain.headers.unsubscribe`)
-- **HTTP Header** - Includes `server.version` in request headers
+- **HTTP Header** - Includes `Server-Version` in request headers
 
 ## Installation
 
@@ -65,7 +65,7 @@ import { http } from '@rpckit/http/electrum-cash'
 
 const transport = http('https://electrum.example.com')
 
-// server.version header included automatically
+// Server-Version header included automatically
 const tip = await transport.request('blockchain.headers.get_tip')
 ```
 

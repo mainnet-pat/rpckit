@@ -12,7 +12,7 @@ describe('Electrum Cash HTTP transport', () => {
     globalThis.fetch = originalFetch
   })
 
-  it('includes server.version header with default protocol version', async () => {
+  it('includes Server-Version header with default protocol version', async () => {
     const mockFetch = vi.mocked(globalThis.fetch)
     mockFetch.mockResolvedValue(
       new Response(JSON.stringify({ jsonrpc: '2.0', result: 42, id: 1 }), {
@@ -28,7 +28,7 @@ describe('Electrum Cash HTTP transport', () => {
       'https://electrum-http-test/rpc',
       expect.objectContaining({
         headers: expect.objectContaining({
-          'server.version': '["rpckit", "1.6"]',
+          'Server-Version': '["rpckit", "1.6"]',
         }),
       }),
     )
@@ -36,7 +36,7 @@ describe('Electrum Cash HTTP transport', () => {
     await transport.close()
   })
 
-  it('uses custom protocolVersion in server.version header', async () => {
+  it('uses custom protocolVersion in Server-Version header', async () => {
     const mockFetch = vi.mocked(globalThis.fetch)
     mockFetch.mockResolvedValue(
       new Response(JSON.stringify({ jsonrpc: '2.0', result: 42, id: 1 }), {
@@ -55,7 +55,7 @@ describe('Electrum Cash HTTP transport', () => {
       'https://electrum-http-test-v16/rpc',
       expect.objectContaining({
         headers: expect.objectContaining({
-          'server.version': '["rpckit", "1.5"]',
+          'Server-Version': '["rpckit", "1.5"]',
         }),
       }),
     )
@@ -63,7 +63,7 @@ describe('Electrum Cash HTTP transport', () => {
     await transport.close()
   })
 
-  it('allows user headers to override server.version', async () => {
+  it('allows user headers to override Server-Version', async () => {
     const mockFetch = vi.mocked(globalThis.fetch)
     mockFetch.mockResolvedValue(
       new Response(JSON.stringify({ jsonrpc: '2.0', result: 42, id: 1 }), {
@@ -74,7 +74,7 @@ describe('Electrum Cash HTTP transport', () => {
 
     const transport = http({
       url: 'https://electrum-http-test-override/rpc',
-      headers: { 'server.version': '["custom", "2.0"]' },
+      headers: { 'Server-Version': '["custom", "2.0"]' },
     })
     await transport.request('server.ping')
 
@@ -82,7 +82,7 @@ describe('Electrum Cash HTTP transport', () => {
       'https://electrum-http-test-override/rpc',
       expect.objectContaining({
         headers: expect.objectContaining({
-          'server.version': '["custom", "2.0"]',
+          'Server-Version': '["custom", "2.0"]',
         }),
       }),
     )
@@ -106,7 +106,7 @@ describe('Electrum Cash HTTP transport', () => {
       'https://electrum-http-test-string/rpc',
       expect.objectContaining({
         headers: expect.objectContaining({
-          'server.version': '["rpckit", "1.6"]',
+          'Server-Version': '["rpckit", "1.6"]',
         }),
       }),
     )

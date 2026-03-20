@@ -43,6 +43,9 @@ const [r1, r2] = await Promise.all([result1, result2])
 | `batchSize` | `number` | `100` | Maximum requests per batch. When reached, batch is sent immediately. |
 | `wait` | `number` | `0` | Maximum time (ms) to wait before sending a batch. |
 | `raw` | `boolean` | `false` | Return full RPC response objects instead of just results. |
+| `disabledCooldown` | `number` | `5000` | Cooldown in ms before re-enabling batching after a server rejection. Set to `0` to disable auto-recovery. |
+| `sendSingle` | `function` | - | Callback to send a single request individually. Enables auto-disable on batch rejection. |
+| `isBatchRejection` | `function` | - | Custom predicate to detect batch rejection errors. |
 
 ### Batch Size
 
@@ -118,6 +121,74 @@ scheduler.enqueue(request2)
 
 // Don't wait for timer or batchSize - send now
 await scheduler.flush()
+```
+
+## Auto-Disable on Batch Rejection
+
+When a server can't handle batch requests (e.g. the batch is too large, or the server doesn't support batching), the scheduler can automatically fall back to sending requests individually.
+
+This behavior is enabled when a `sendSingle` callback is provided. The built-in WebSocket and TCP transports provide this automatically.
+
+### How It Works
+
+1. A batch is sent to the server
+2. The server rejects the batch (timeout, parse error, or invalid request)
+3. The scheduler detects the rejection and disables batching
+4. Failed requests are retried individually via `sendSingle`
+5. Subsequent requests bypass the batch queue and are sent individually
+6. After `disabledCooldown` ms (default: 5 seconds), batching is re-enabled
+
+### Detection
+
+By default, the following errors trigger auto-disable:
+
+- **Batch timeout** — the server couldn't process the batch in time
+- **Parse error** (JSON-RPC code `-32700`) — the server couldn't parse the batch array
+- **Invalid request** (JSON-RPC code `-32600`) — the server rejected the batch format
+
+You can provide a custom `isBatchRejection` predicate for other error patterns:
+
+```ts
+const scheduler = new BatchScheduler(
+  {
+    batchSize: 100,
+    sendSingle: (req) => sendIndividualRequest(req),
+    isBatchRejection: (error) => {
+      // Custom detection logic
+      return error instanceof Error && error.message.includes('rate limit')
+    }
+  },
+  sendBatch
+)
+```
+
+### Checking Status
+
+The `disabled` property indicates whether batching is currently disabled:
+
+```ts
+if (scheduler.disabled) {
+  console.log('Batching is temporarily disabled')
+}
+```
+
+### Transport Integration
+
+The WebSocket and TCP transports enable auto-disable by default. Configure the cooldown via the `batch` option:
+
+```ts
+import { webSocket } from '@rpckit/websocket/electrum-cash'
+
+const transport = webSocket('wss://electrum.example.com', {
+  batch: {
+    batchSize: 100,
+    wait: 10,
+    disabledCooldown: 10_000   // Re-enable after 10 seconds
+  }
+})
+
+// If the server rejects a batch, the transport transparently
+// falls back to individual requests and recovers automatically
 ```
 
 ## Error Handling

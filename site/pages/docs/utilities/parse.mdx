@@ -99,6 +99,7 @@ const transport = await parse('wss://example.com?timeout=10000&keepAlive=30000')
 | `batch` | `boolean` | Enable/disable batching |
 | `batchSize` | `number` | Maximum requests per batch |
 | `batchWait` | `number` | Maximum wait time before flushing batch (ms) |
+| `disabledCooldown` | `number` | Cooldown in ms before re-enabling batching after server rejection (default: `5000`) |
 | `rank` | `boolean` | Enable health ranking for fallback transport |
 | `eagerConnect` | `boolean` | Connect all fallback transports in parallel |
 | `retryCount` | `number` | Number of retry attempts |
@@ -111,6 +112,9 @@ const transport = await parse('wss://example.com?timeout=10000&keepAlive=30000')
 ```ts
 // Enable batching with custom settings
 const transport = await parse('wss://example.com?batchSize=10&batchWait=50')
+
+// Custom batch cooldown (re-enable batching after 10 seconds)
+const transport = await parse('wss://example.com?batchSize=10&disabledCooldown=10000')
 ```
 
 ### Fallback Options

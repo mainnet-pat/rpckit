@@ -56,7 +56,7 @@ const transport = tcp({
 | `tls` | `boolean \| TLSOptions` | `false` | Enable TLS encryption |
 | `timeout` | `number` | `30000` | Request timeout in milliseconds |
 | `connectTimeout` | `number` | - | Connection timeout in milliseconds |
-| `batch` | `BatchConfig \| false` | `{ batchSize: 100 }` | Batching configuration |
+| `batch` | `BatchConfig \| false` | `{ batchSize: 100 }` | Batching configuration (`batchSize`, `wait`, `disabledCooldown`) |
 | `keepAlive` | `KeepAliveConfig` | - | Keep-alive ping configuration |
 | `reconnect` | `{ delay, attempts }` | - | Auto-reconnect after disconnect |
 

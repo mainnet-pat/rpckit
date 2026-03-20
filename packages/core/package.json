@@ -1,6 +1,6 @@
 {
   "name": "@rpckit/core",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Core types, schema utilities, and batch scheduler for JSON-RPC communication",
   "author": "mainnet_pat",
   "license": "MIT",

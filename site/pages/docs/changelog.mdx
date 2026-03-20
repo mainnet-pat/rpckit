@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.0.2
+
+### Batch Auto-Disable
+
+When a server can't handle batch requests (e.g. the batch is too large or the server doesn't support batching), the `BatchScheduler` now automatically falls back to sending requests individually and temporarily disables batching. After a cooldown period (default: 5 seconds), batching is re-enabled.
+
+- **`BatchScheduler`** — Added `sendSingle`, `isBatchRejection`, and `disabledCooldown` options. Added `disabled` property.
+- **WebSocket & TCP transports** — Now provide a `sendSingle` fallback to `BatchScheduler`, enabling transparent auto-disable on batch rejection.
+- **`parse()`** — Added `disabledCooldown` query parameter support (e.g. `wss://example.com?batchSize=10&disabledCooldown=10000`).
+- **`BatchConfig`** — Added `disabledCooldown` option.
+- **`bump.mjs`** — Skip package directories without `package.json`.
+
+### Detection
+
+The following errors trigger auto-disable by default:
+
+- Batch timeout — server couldn't process the batch in time
+- Parse error (JSON-RPC code `-32700`)
+- Invalid request (JSON-RPC code `-32600`)
+
+Custom detection can be provided via the `isBatchRejection` option.
+
 ## 1.0.0
 
 Initial release.

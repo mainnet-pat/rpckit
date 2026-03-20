@@ -36,6 +36,8 @@ export interface Transport<S extends Schema = AnySchema> {
 export interface BatchConfig {
   wait?: number
   batchSize?: number
+  /** Cooldown in ms before re-enabling batching after server rejection (default: 5_000) */
+  disabledCooldown?: number
 }
 
 export interface RetryConfig {

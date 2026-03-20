@@ -16,7 +16,12 @@ const packages = readdirSync(packagesDir)
 
 for (const pkg of packages) {
   const pkgJsonPath = join(packagesDir, pkg, 'package.json')
-  const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
+  let pkgJson
+  try {
+    pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
+  } catch {
+    continue
+  }
   pkgJson.version = version
   // Update @rpckit/* dependency versions
   for (const depField of ['dependencies', 'devDependencies', 'peerDependencies']) {

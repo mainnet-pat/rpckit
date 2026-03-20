@@ -204,8 +204,8 @@ function buildOptions(
     else if (key === 'batch') {
       result[key] = value === 'true'
     }
-    // Skip batchSize/batchWait - handled below
-    else if (key === 'batchSize' || key === 'batchWait') {
+    // Skip batchSize/batchWait/disabledCooldown - handled below
+    else if (key === 'batchSize' || key === 'batchWait' || key === 'disabledCooldown') {
       // handled after loop
     }
     // Keep strings as-is
@@ -214,14 +214,17 @@ function buildOptions(
     }
   }
 
-  // Build batch config from batchSize/batchWait
-  if (options.batchSize || options.batchWait) {
-    const batchConfig: { batchSize?: number; wait?: number } = {}
+  // Build batch config from batchSize/batchWait/disabledCooldown
+  if (options.batchSize || options.batchWait || options.disabledCooldown) {
+    const batchConfig: { batchSize?: number; wait?: number; disabledCooldown?: number } = {}
     if (options.batchSize) {
       batchConfig.batchSize = Number.parseInt(options.batchSize, 10)
     }
     if (options.batchWait) {
       batchConfig.wait = Number.parseInt(options.batchWait, 10)
+    }
+    if (options.disabledCooldown) {
+      batchConfig.disabledCooldown = Number.parseInt(options.disabledCooldown, 10)
     }
     result.batch = batchConfig
   }
@@ -365,6 +368,7 @@ export function createParseSync(
  * - `batch` - Enable batching (true/false)
  * - `batchSize` - Max requests per batch
  * - `batchWait` - Max wait time before flushing batch (ms)
+ * - `disabledCooldown` - Cooldown in ms before re-enabling batching after server rejection (default: 5000)
  * - `rank` - Enable health ranking for fallback (true/false)
  * - `eagerConnect` - Connect all fallback transports in parallel (true/false)
  * - `clientName` - Client name for electrum-cash handshake (default: 'rpckit')

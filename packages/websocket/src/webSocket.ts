@@ -96,9 +96,26 @@ function getOrCreateSocketClient(
   let keepAliveTimer: ReturnType<typeof setTimeout> | null = null
   let batchScheduler: BatchScheduler | null = null
 
+  async function sendSingle(req: RpcRequest): Promise<unknown> {
+    await connect()
+    return new Promise((resolve, reject) => {
+      const timer = config.timeout
+        ? setTimeout(() => {
+            pending.delete(req.id)
+            reject(new Error('Request timeout'))
+          }, config.timeout)
+        : undefined
+      pending.set(req.id, { resolve, reject, timer })
+      sendRaw(req)
+    })
+  }
+
   if (config.batch !== false) {
     batchScheduler = new BatchScheduler(
-      typeof config.batch === 'object' ? config.batch : {},
+      {
+        ...(typeof config.batch === 'object' ? config.batch : {}),
+        sendSingle,
+      },
       sendBatch,
     )
   }
@@ -316,17 +333,7 @@ function getOrCreateSocketClient(
       return batchScheduler.enqueue(req)
     }
 
-    return new Promise((resolve, reject) => {
-      const timer = config.timeout
-        ? setTimeout(() => {
-            pending.delete(id)
-            reject(new Error('Request timeout'))
-          }, config.timeout)
-        : undefined
-
-      pending.set(id, { resolve, reject, timer })
-      sendRaw(req)
-    })
+    return sendSingle(req)
   }
 
   async function subscribe(

@@ -48,7 +48,7 @@ const transport = webSocket({
 | `url` | `string` | - | WebSocket URL (`ws://` or `wss://`) |
 | `timeout` | `number` | `30000` | Request timeout in milliseconds |
 | `connectTimeout` | `number` | - | Connection timeout in milliseconds |
-| `batch` | `BatchConfig \| false` | `{ batchSize: 100 }` | Batching configuration |
+| `batch` | `BatchConfig \| false` | `{ batchSize: 100 }` | Batching configuration (`batchSize`, `wait`, `disabledCooldown`) |
 | `keepAlive` | `KeepAliveConfig` | - | Keep-alive ping configuration |
 | `reconnect` | `{ delay, attempts }` | - | Auto-reconnect after disconnect |
 | `headers` | `Record<string, string>` | - | Headers for WebSocket handshake |

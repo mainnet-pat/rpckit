@@ -40,6 +40,6 @@ export default defineConfig({
   topNav: [
     { text: 'Docs', link: '/docs/getting-started', match: '/docs' },
     { text: 'Changelog', link: '/docs/changelog' },
-    { text: '1.0.1', link: '/docs/changelog' },
+    { text: '1.0.2', link: '/docs/changelog' },
   ],
 })

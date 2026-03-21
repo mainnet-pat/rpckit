@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.3
+
+### Subscription Dispatch Chain
+
+Subscription notification handlers are now serialized via a `dispatchChain` on each subscription entry, preventing concurrent handler execution and ensuring notifications are processed in order.
+
+- **WebSocket & TCP transports** — Notification handlers are dispatched through a promise chain, so each notification waits for the previous one's handlers to complete before firing.
+- **Error isolation** — A failing handler no longer breaks the dispatch chain for the subscription. Each handler is individually caught.
+- **Graceful cleanup** — `unsubscribe()` and `close()` now await in-flight dispatch chains, ensuring all pending handlers complete before teardown.
+
 ## 1.0.2
 
 ### Batch Auto-Disable

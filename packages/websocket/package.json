@@ -1,6 +1,6 @@
 {
   "name": "@rpckit/websocket",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "WebSocket transport for rpckit with subscriptions, keep-alive, and reconnection",
   "author": "mainnet_pat",
   "license": "MIT",
@@ -47,7 +47,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@rpckit/core": "^1.0.2",
+    "@rpckit/core": "^1.0.3",
     "isows": "^1.0.6"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 {
   "name": "@rpckit/tcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "TCP transport for rpckit (Node.js) with TLS support",
   "author": "mainnet_pat",
   "license": "MIT",
@@ -42,7 +42,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@rpckit/core": "^1.0.2"
+    "@rpckit/core": "^1.0.3"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

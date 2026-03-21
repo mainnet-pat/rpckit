@@ -375,8 +375,10 @@ describe('Electrum Cash WebSocket transport', () => {
         params: [{ height: 101, hex: 'cd' }],
       }),
     })
-    expect(received1).toHaveLength(2)
-    expect(received2).toHaveLength(2)
+    await vi.waitFor(() => {
+      expect(received1).toHaveLength(2)
+      expect(received2).toHaveLength(2)
+    })
 
     // First subscriber unsubscribes - NO unsubscribe request should be sent
     const sentBeforeUnsub1 = lastWs().sent.length
@@ -391,8 +393,8 @@ describe('Electrum Cash WebSocket transport', () => {
         params: [{ height: 102, hex: 'ef' }],
       }),
     })
+    await vi.waitFor(() => expect(received2).toHaveLength(3)) // Second subscriber still receives
     expect(received1).toHaveLength(2) // First subscriber doesn't receive (unsubscribed)
-    expect(received2).toHaveLength(3) // Second subscriber still receives
 
     // Second subscriber unsubscribes - NOW unsubscribe request should be sent
     const unsubPromise2 = unsub2()

@@ -38,6 +38,7 @@ type SubscriptionEntry = {
   listeners: Set<(data: unknown) => void>
   initialResult: unknown
   lastNotification: unknown
+  dispatchChain: Promise<void>
 }
 
 type TcpSocketClient = {
@@ -67,7 +68,7 @@ type TcpSocketClient = {
     onData: (data: unknown) => void,
   ) => Promise<{
     initialResult: unknown
-    unsubscribe: () => boolean
+    unsubscribe: () => Promise<boolean>
     fromNotification: boolean
   }>
   close: () => Promise<void>
@@ -250,7 +251,13 @@ function getOrCreateTcpSocketClient(
                     }
                   }
                   entry.lastNotification = notif.params
-                  for (const handler of entry.listeners) handler(notif.params)
+                  entry.dispatchChain = entry.dispatchChain.then(() =>
+                    Promise.all(
+                      Array.from(entry.listeners, (handler) =>
+                        Promise.resolve(handler(notif.params)).catch(() => {}),
+                      ),
+                    ).then(() => {}),
+                  )
                 }
               }
             }
@@ -378,7 +385,7 @@ function getOrCreateTcpSocketClient(
     onData: (data: unknown) => void,
   ): Promise<{
     initialResult: unknown
-    unsubscribe: () => boolean
+    unsubscribe: () => Promise<boolean>
     fromNotification: boolean
   }> {
     await connect()
@@ -386,10 +393,11 @@ function getOrCreateTcpSocketClient(
     const subKey = getSubscriptionKey(method, params)
 
     // Helper to create unsubscribe function for an entry
-    const createUnsubscribe = (e: SubscriptionEntry) => () => {
+    const createUnsubscribe = (e: SubscriptionEntry) => async () => {
       e.listeners.delete(onData)
       if (e.listeners.size === 0) {
         subscriptions.delete(subKey)
+        await e.dispatchChain
         return true // was the last listener
       }
       return false // other listeners remain
@@ -448,6 +456,7 @@ function getOrCreateTcpSocketClient(
         listeners: new Set([onData]),
         initialResult,
         lastNotification: undefined,
+        dispatchChain: Promise.resolve(),
       }
       subscriptions.set(subKey, newEntry)
       return newEntry
@@ -471,6 +480,10 @@ function getOrCreateTcpSocketClient(
     closed = true
     stopKeepAlive()
     if (batchScheduler) await batchScheduler.flush()
+    // Drain all in-flight dispatch chains before tearing down
+    await Promise.all(
+      Array.from(subscriptions.values(), (e) => e.dispatchChain),
+    )
     for (const [, p] of pending) {
       if (p.timer) clearTimeout(p.timer)
       p.reject(new Error('Transport closed'))
@@ -573,7 +586,7 @@ export function tcp<S extends Schema = AnySchema>(
       }
 
       const unsub: Unsubscribe = async (cleanup) => {
-        const wasLastListener = unsubscribe()
+        const wasLastListener = await unsubscribe()
         // Only call onUnsubscribe when the last listener is removed
         if (wasLastListener) {
           const fn = cleanup ?? config.onUnsubscribe

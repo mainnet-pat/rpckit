@@ -104,10 +104,12 @@ describe('WebSocket transport', () => {
         params: [{ height: 101, hex: 'cd' }],
       }),
     })
-    expect(received).toEqual([
-      { height: 100, hex: 'ab' },
-      [{ height: 101, hex: 'cd' }],
-    ])
+    await vi.waitFor(() =>
+      expect(received).toEqual([
+        { height: 100, hex: 'ab' },
+        [{ height: 101, hex: 'cd' }],
+      ]),
+    )
 
     // Unsubscribe (base transport does local cleanup only, no unsubscribe request)
     await unsub()
@@ -339,11 +341,13 @@ describe('WebSocket transport', () => {
     })
 
     // First subscriber received notifications
-    expect(received1).toEqual([
-      { height: 100, hex: 'initial' },
-      [{ height: 101, hex: 'block101' }],
-      [{ height: 102, hex: 'block102' }],
-    ])
+    await vi.waitFor(() =>
+      expect(received1).toEqual([
+        { height: 100, hex: 'initial' },
+        [{ height: 101, hex: 'block101' }],
+        [{ height: 102, hex: 'block102' }],
+      ]),
+    )
 
     // Second subscriber taps into existing subscription
     // Should NOT send another subscribe request
@@ -369,8 +373,10 @@ describe('WebSocket transport', () => {
         params: [{ height: 103, hex: 'block103' }],
       }),
     })
-    expect(received1).toHaveLength(4)
-    expect(received2).toHaveLength(2)
+    await vi.waitFor(() => {
+      expect(received1).toHaveLength(4)
+      expect(received2).toHaveLength(2)
+    })
     expect(received1[3]).toEqual([{ height: 103, hex: 'block103' }])
     expect(received2[1]).toEqual([{ height: 103, hex: 'block103' }])
 
@@ -488,10 +494,12 @@ describe('WebSocket transport', () => {
       }),
     })
 
-    expect(received1).toEqual([
-      ['scripthash_abc', 'status_initial'],
-      ['scripthash_abc', 'status_updated'],
-    ])
+    await vi.waitFor(() =>
+      expect(received1).toEqual([
+        ['scripthash_abc', 'status_initial'],
+        ['scripthash_abc', 'status_updated'],
+      ]),
+    )
 
     // Second subscriber joins existing subscription after notification
     const unsub2 = await transport.subscribe(
@@ -561,8 +569,10 @@ describe('WebSocket transport', () => {
         params: [{ height: 201, hex: 'bb' }],
       }),
     })
-    expect(received1).toHaveLength(2)
-    expect(received2).toHaveLength(2)
+    await vi.waitFor(() => {
+      expect(received1).toHaveLength(2)
+      expect(received2).toHaveLength(2)
+    })
 
     // Still only one RPC request total
     expect(lastWs().sent.length).toBe(1)
@@ -620,9 +630,8 @@ describe('WebSocket transport', () => {
     })
 
     // First listener should NOT receive the notification (already unsubscribed)
+    await vi.waitFor(() => expect(received2).toHaveLength(2))
     expect(received1).toEqual([{ height: 300 }])
-    // Second listener should still receive it
-    expect(received2).toHaveLength(2)
     expect(received2[1]).toEqual([{ height: 301 }])
 
     await unsub2()
@@ -779,7 +788,7 @@ describe('WebSocket transport', () => {
         params: [{ number: '0x100' }],
       }),
     })
-    expect(received).toEqual([[{ number: '0x100' }]])
+    await vi.waitFor(() => expect(received).toEqual([[{ number: '0x100' }]]))
 
     await unsub?.()
     await transport.close()

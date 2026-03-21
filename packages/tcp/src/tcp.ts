@@ -115,6 +115,8 @@ function getOrCreateTcpSocketClient(
     }
   >()
   const subscriptions = new Map<string, SubscriptionEntry>()
+  // Track pending subscribe requests to prevent race conditions
+  const pendingSubscriptions = new Map<string, Promise<SubscriptionEntry>>()
 
   let keepAliveTimer: ReturnType<typeof setTimeout> | null = null
   let batchScheduler: BatchScheduler | null = null
@@ -382,8 +384,19 @@ function getOrCreateTcpSocketClient(
     await connect()
 
     const subKey = getSubscriptionKey(method, params)
-    let entry = subscriptions.get(subKey)
 
+    // Helper to create unsubscribe function for an entry
+    const createUnsubscribe = (e: SubscriptionEntry) => () => {
+      e.listeners.delete(onData)
+      if (e.listeners.size === 0) {
+        subscriptions.delete(subKey)
+        return true // was the last listener
+      }
+      return false // other listeners remain
+    }
+
+    // Check for existing subscription
+    let entry = subscriptions.get(subKey)
     if (entry) {
       entry.listeners.add(onData)
       const hasNotification = entry.lastNotification !== undefined
@@ -391,53 +404,66 @@ function getOrCreateTcpSocketClient(
         initialResult: hasNotification
           ? entry.lastNotification
           : entry.initialResult,
-        unsubscribe: () => {
-          entry?.listeners.delete(onData)
-          if (entry?.listeners.size === 0) {
-            subscriptions.delete(subKey)
-            return true // was the last listener
-          }
-          return false // other listeners remain
-        },
+        unsubscribe: createUnsubscribe(entry),
         fromNotification: hasNotification,
       }
     }
 
-    const id = nextId++
-    const req: RpcRequest = { jsonrpc: '2.0', method, params, id }
-
-    const initialResult = await new Promise<unknown>((resolve, reject) => {
-      const timer = config.timeout
-        ? setTimeout(() => {
-            pending.delete(id)
-            reject(new Error('Request timeout'))
-          }, config.timeout)
-        : undefined
-
-      pending.set(id, { resolve, reject, timer })
-      sendRaw(req)
-    })
-
-    entry = {
-      method,
-      params,
-      listeners: new Set([onData]),
-      initialResult,
-      lastNotification: undefined,
+    // Check for pending subscription request (race condition prevention)
+    const pendingPromise = pendingSubscriptions.get(subKey)
+    if (pendingPromise) {
+      // Wait for the in-flight subscription to complete, then tap in
+      entry = await pendingPromise
+      entry.listeners.add(onData)
+      const hasNotification = entry.lastNotification !== undefined
+      return {
+        initialResult: hasNotification
+          ? entry.lastNotification
+          : entry.initialResult,
+        unsubscribe: createUnsubscribe(entry),
+        fromNotification: hasNotification,
+      }
     }
-    subscriptions.set(subKey, entry)
 
-    return {
-      initialResult,
-      unsubscribe: () => {
-        entry?.listeners.delete(onData)
-        if (entry?.listeners.size === 0) {
-          subscriptions.delete(subKey)
-          return true // was the last listener
-        }
-        return false // other listeners remain
-      },
-      fromNotification: false,
+    // Create new subscription - store promise to prevent race conditions
+    const subscriptionPromise = (async () => {
+      const id = nextId++
+      const req: RpcRequest = { jsonrpc: '2.0', method, params, id }
+
+      const initialResult = await new Promise<unknown>((resolve, reject) => {
+        const timer = config.timeout
+          ? setTimeout(() => {
+              pending.delete(id)
+              reject(new Error('Request timeout'))
+            }, config.timeout)
+          : undefined
+
+        pending.set(id, { resolve, reject, timer })
+        sendRaw(req)
+      })
+
+      const newEntry: SubscriptionEntry = {
+        method,
+        params,
+        listeners: new Set([onData]),
+        initialResult,
+        lastNotification: undefined,
+      }
+      subscriptions.set(subKey, newEntry)
+      return newEntry
+    })()
+
+    pendingSubscriptions.set(subKey, subscriptionPromise)
+
+    try {
+      entry = await subscriptionPromise
+      return {
+        initialResult: entry.initialResult,
+        unsubscribe: createUnsubscribe(entry),
+        fromNotification: false,
+      }
+    } finally {
+      pendingSubscriptions.delete(subKey)
     }
   }
 

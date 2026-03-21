@@ -474,6 +474,237 @@ describe('TCP transport', () => {
     await transport.close()
   })
 
+  it('concurrent subscribes to same method+params send only one RPC request', async () => {
+    const transport = tcp({
+      host: '127.0.0.1',
+      port: 50001,
+      batch: false,
+    })
+
+    const received1: unknown[] = []
+    const received2: unknown[] = []
+
+    // Launch two subscribes concurrently before the server responds
+    const subPromise1 = transport.subscribe(
+      'blockchain.headers.subscribe',
+      (data) => received1.push(data),
+    )
+    const subPromise2 = transport.subscribe(
+      'blockchain.headers.subscribe',
+      (data) => received2.push(data),
+    )
+
+    // Wait for a message to be sent
+    await vi.waitFor(() =>
+      expect(lastSocket().written.length).toBeGreaterThanOrEqual(1),
+    )
+
+    // Only ONE RPC request should have been sent
+    expect(lastSocket().written.length).toBe(1)
+
+    // Respond to the single request
+    const req = JSON.parse(lastSocket().written[0].trim())
+    expect(req.method).toBe('blockchain.headers.subscribe')
+    lastSocket().emit(
+      'data',
+      `${JSON.stringify({
+        jsonrpc: '2.0',
+        result: { height: 200, hex: 'aa' },
+        id: req.id,
+      })}\n`,
+    )
+
+    const [unsub1, unsub2] = await Promise.all([subPromise1, subPromise2])
+
+    // Both subscribers should have received the initial result
+    expect(received1).toEqual([{ height: 200, hex: 'aa' }])
+    expect(received2).toEqual([{ height: 200, hex: 'aa' }])
+
+    // Subsequent notifications go to both
+    lastSocket().emit(
+      'data',
+      `${JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'blockchain.headers.subscribe',
+        params: [{ height: 201, hex: 'bb' }],
+      })}\n`,
+    )
+    expect(received1).toHaveLength(2)
+    expect(received2).toHaveLength(2)
+
+    // Still only one RPC request total
+    expect(lastSocket().written.length).toBe(1)
+
+    await unsub1()
+    await unsub2()
+    await transport.close()
+  })
+
+  it('unsubscribing one listener keeps subscription alive for remaining listeners', async () => {
+    const transport = tcp({
+      host: '127.0.0.1',
+      port: 50001,
+      batch: false,
+    })
+
+    const received1: unknown[] = []
+    const received2: unknown[] = []
+
+    // First subscriber
+    const subPromise1 = transport.subscribe(
+      'blockchain.headers.subscribe',
+      (data) => received1.push(data),
+    )
+
+    await vi.waitFor(() => expect(lastSocket().written.length).toBe(1))
+
+    const req = JSON.parse(lastSocket().written[0].trim())
+    lastSocket().emit(
+      'data',
+      `${JSON.stringify({
+        jsonrpc: '2.0',
+        result: { height: 300 },
+        id: req.id,
+      })}\n`,
+    )
+
+    const unsub1 = await subPromise1
+
+    // Second subscriber
+    const unsub2 = await transport.subscribe(
+      'blockchain.headers.subscribe',
+      (data) => received2.push(data),
+    )
+
+    // Unsubscribe the first listener
+    await unsub1()
+
+    // Notification should still reach the second listener
+    lastSocket().emit(
+      'data',
+      `${JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'blockchain.headers.subscribe',
+        params: [{ height: 301 }],
+      })}\n`,
+    )
+
+    // First listener should NOT receive the notification (already unsubscribed)
+    expect(received1).toEqual([{ height: 300 }])
+    // Second listener should still receive it
+    expect(received2).toHaveLength(2)
+    expect(received2[1]).toEqual([{ height: 301 }])
+
+    await unsub2()
+    await transport.close()
+  })
+
+  it('onUnsubscribe is called only when the last listener unsubscribes', async () => {
+    const onUnsubscribe = vi.fn()
+    const transport = tcp({
+      host: '127.0.0.1',
+      port: 50001,
+      batch: false,
+      onUnsubscribe,
+    })
+
+    // First subscriber
+    const subPromise1 = transport.subscribe(
+      'blockchain.headers.subscribe',
+      () => {},
+    )
+
+    await vi.waitFor(() => expect(lastSocket().written.length).toBe(1))
+
+    const req = JSON.parse(lastSocket().written[0].trim())
+    lastSocket().emit(
+      'data',
+      `${JSON.stringify({
+        jsonrpc: '2.0',
+        result: { height: 400 },
+        id: req.id,
+      })}\n`,
+    )
+
+    const unsub1 = await subPromise1
+
+    // Second subscriber
+    const unsub2 = await transport.subscribe(
+      'blockchain.headers.subscribe',
+      () => {},
+    )
+
+    // Unsubscribe first — onUnsubscribe should NOT fire
+    await unsub1()
+    expect(onUnsubscribe).not.toHaveBeenCalled()
+
+    // Unsubscribe last — onUnsubscribe SHOULD fire
+    await unsub2()
+    expect(onUnsubscribe).toHaveBeenCalledOnce()
+
+    await transport.close()
+  })
+
+  it('different params create separate subscriptions', async () => {
+    const transport = tcp({
+      host: '127.0.0.1',
+      port: 50001,
+      batch: false,
+    })
+
+    const received1: unknown[] = []
+    const received2: unknown[] = []
+
+    // Subscribe with params ['addr1']
+    const subPromise1 = transport.subscribe(
+      'blockchain.scripthash.subscribe',
+      'addr1',
+      (data) => received1.push(data),
+    )
+
+    await vi.waitFor(() => expect(lastSocket().written.length).toBe(1))
+    const req1 = JSON.parse(lastSocket().written[0].trim())
+    lastSocket().emit(
+      'data',
+      `${JSON.stringify({
+        jsonrpc: '2.0',
+        result: 'status1',
+        id: req1.id,
+      })}\n`,
+    )
+    const unsub1 = await subPromise1
+
+    // Subscribe with params ['addr2'] — should send a SECOND RPC request
+    const subPromise2 = transport.subscribe(
+      'blockchain.scripthash.subscribe',
+      'addr2',
+      (data) => received2.push(data),
+    )
+
+    await vi.waitFor(() => expect(lastSocket().written.length).toBe(2))
+    const req2 = JSON.parse(lastSocket().written[1].trim())
+    expect(req2.params).toEqual(['addr2'])
+    lastSocket().emit(
+      'data',
+      `${JSON.stringify({
+        jsonrpc: '2.0',
+        result: 'status2',
+        id: req2.id,
+      })}\n`,
+    )
+    const unsub2 = await subPromise2
+
+    // Two separate RPC requests were sent
+    expect(lastSocket().written.length).toBe(2)
+
+    expect(received1).toEqual(['status1'])
+    expect(received2).toEqual(['status2'])
+
+    await unsub1()
+    await unsub2()
+    await transport.close()
+  })
+
   it('rejects with connection timeout when socket does not connect', async () => {
     autoConnect = false
 
